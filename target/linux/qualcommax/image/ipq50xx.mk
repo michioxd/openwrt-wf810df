@@ -233,3 +233,16 @@ define Device/zyxel_scr50axe
 		ipq-wifi-zyxel_scr50axe
 endef
 TARGET_DEVICES += zyxel_scr50axe
+
+define Device/fpt_ax3000cv2
+	$(call Device/FitImage)
+	$(call Device/UbiFit)
+	DEVICE_VENDOR := FPT
+	DEVICE_MODEL := AX3000CV2
+	SOC := ipq5018
+	BLOCKSIZE := 128k
+	PAGESIZE := 2048
+	NAND_SIZE := 256m
+	DEVICE_PACKAGES := ath11k-firmware-ipq5018-qcn6122
+endef
+TARGET_DEVICES += fpt_ax3000cv2
