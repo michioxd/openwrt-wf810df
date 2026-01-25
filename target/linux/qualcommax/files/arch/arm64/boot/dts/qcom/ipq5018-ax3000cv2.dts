@@ -1,4 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
+// SPDX-License-Identifier: GPL-2.0-or-later
+/**
+* (c) 2026 powered by michioxd
+*/
 
 /dts-v1/;
 
@@ -148,10 +151,11 @@
 &mdio1 {
 	status = "okay";
 	phy-reset-gpio = <&tlmm 35 GPIO_ACTIVE_LOW>;
+	phy-reset-active = <0x01>;
 	pinctrl-0 = <&mdio1_pins>;
 	pinctrl-names = "default";
 	
-	switch@1d {
+	ethernet-phy@1d {
 		compatible = "motorcomm,yt9215";
 		reg = <0x1d>;
 		mii-bus = <0x10>;
