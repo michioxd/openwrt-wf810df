@@ -17,84 +17,6 @@
 	model = "FPT AX3000CV2";
 	compatible ="fpt,ax3000cv2", "qcom,ipq5018";
 	
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-		
-		nss@40000000 {
-			no-map;
-			reg = <0x0 0x40000000 0x0 0x1000000>;
-		};
-		
-		smem@4ab00000 {
-			no-map;
-			reg = <0x0 0x4ab00000 0x0 0x100000>;
-			phandle = <&smem>;
-		};
-		
-		tz@4ac00000 {
-			no-map;
-			reg = <0x0 0x4ac00000 0x0 0x400000>;
-		};
-		
-		q6_mem_regions: q6_mem_regions@4b000000 {
-			no-map;
-			reg = <0x0 0x4b000000 0x0 0x3500000>;
-		};
-		
-		q6_ipq5018_data: q6_ipq5018_data@4c000000 {
-			no-map;
-			reg = <0x0 0x4c000000 0x0 0xd00000>;
-		};
-		
-		m3_dump@4cd00000 {
-			no-map;
-			reg = <0x0 0x4cd00000 0x0 0x100000>;
-		};
-		
-		q6_etr_dump: q6_etr_dump@4ce00000 {
-			no-map;
-			reg = <0x0 0x4ce00000 0x0 0x100000>;
-		};
-		
-		q6_caldb_region: q6_caldb_region@4cf00000 {
-			no-map;
-			reg = <0x0 0x4cf00000 0x0 0x200000>;
-		};
-		
-		q6_qcn6122_data1: q6_qcn6122_data1@4d100000 {
-			no-map;
-			reg = <0x0 0x4d100000 0x0 0xd00000>;
-		};
-		
-		m3_dump_qcn6122_1: m3_dump_qcn6122_1@4de00000 {
-			no-map;
-			reg = <0x0 0x4de00000 0x0 0x100000>;
-		};
-		
-		q6_qcn6122_etr_1: q6_qcn6122_etr_1@4df00000 {
-			no-map;
-			reg = <0x0 0x4df00000 0x0 0x100000>;
-		};
-		
-		q6_qcn6122_caldb_1: q6_qcn6122_caldb_1@4e000000 {
-			no-map;
-			reg = <0x0 0x4e000000 0x0 0x500000>;
-		};
-		
-		ramoops@4e500000 {
-			compatible = "ramoops";
-			no-map;
-			reg = <0x0 0x4e500000 0x0 0x140000>;
-			record-size = <0x4000>;
-			console-size = <0x4000>;
-			pmsg-size = <0x100000>;
-			ftrace-size = <0x4000>;
-			ecc-size = <0x4000>;
-		};
-	};
-	
 	aliases {
 		sdhc1 = "/soc/sdhci@7804000";
 		serial0 = "/soc/serial@78af000";
@@ -107,6 +29,8 @@
 		bootargs = "console=ttyMSM0,115200,n8 rw init=/init";
 		bootargs-append = " swiotlb=1 coherent_pool=2M ramoops.mem_address=0x4E500000 ramoops.mem_size=0x140000 ramoops.record_size=0x4000 ramoops.console_size=0x4000 ramoops.pmsg_size=0x100000 ramoops.ftrace_size=0x4000 ramoops.ecc=1";
 		stdout-path = "serial0";
+		nvmem-cells = <&serial_number>;
+		nvmem-cell-names = "serial-number";
 	};
 	
 	keys {
@@ -218,6 +142,167 @@
 	status = "okay";
 };
 
+&qpic_nand {
+	status = "okay";
+	pinctrl-0 = <&qpic_pins>;
+	pinctrl-names = "default";
+	
+	nandcs@0 {
+		compatible = "qcom,nandcs";
+		reg = <0>;
+		
+		nand-ecc-strength = <4>;
+		nand-ecc-step-size = <512>;
+		nand-bus-width = <8>;
+		
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			
+			partition@0 {
+				label = "0:SBL1";
+				reg = <0x0 0x80000>;
+				read-only;
+			};
+			
+			partition@80000 {
+				label = "0:MIBIB";
+				reg = <0x80000 0x80000>;
+				read-only;
+			};
+			
+			partition@100000 {
+				label = "0:BOOTCONFIG";
+				reg = <0x100000 0x40000>;
+				read-only;
+			};
+			
+			partition@140000 {
+				label = "0:BOOTCONFIG1";
+				reg = <0x140000 0x40000>;
+				read-only;
+			};
+			
+			partition@180000 {
+				label = "0:QSEE";
+				reg = <0x180000 0x100000>;
+				read-only;
+			};
+			
+			partition@280000 {
+				label = "0:QSEE_1";
+				reg = <0x280000 0x100000>;
+				read-only;
+			};
+			
+			partition@380000 {
+				label = "0:DEVCFG";
+				reg = <0x380000 0x40000>;
+				read-only;
+			};
+			
+			partition@3c0000 {
+				label = "0:DEVCFG_1";
+				reg = <0x3c0000 0x40000>;
+				read-only;
+			};
+			
+			partition@400000 {
+				label = "0:CDT";
+				reg = <0x400000 0x40000>;
+				read-only;
+			};
+			
+			partition@440000 {
+				label = "0:CDT_1";
+				reg = <0x440000 0x40000>;
+				read-only;
+			};
+			
+			partition@480000 {
+				label = "0:APPSBLENV";
+				reg = <0x480000 0x80000>;
+				
+				nvmem-layout {
+					compatible = "u-boot,env";
+					
+					macaddr_appsblenv_ethaddr: ethaddr {
+						#nvmem-cell-cells = <1>;
+					};
+					
+					serial_number: AeiBoardSerialNumber {
+						#nvmem-cell-cells = <1>;
+					};
+					
+					model_name: modelname {
+						#nvmem-cell-cells = <1>;
+					};
+				};
+			};
+			
+			partition@500000 {
+				label = "0:APPSBL";
+				reg = <0x500000 0x140000>;
+				read-only;
+			};
+			
+			partition@640000 {
+				label = "0:APPSBL_1";
+				reg = <0x640000 0x140000>;
+				read-only;
+			};
+			
+			art: partition@780000 {
+				label = "0:ART";
+				reg = <0x780000 0x100000>;
+				read-only;
+			};
+			
+			partition@880000 {
+				label = "0:TRAINING";
+				reg = <0x880000 0x80000>;
+				read-only;
+			};
+			
+			partition@900000 {
+				label = "APPSBLENV_1";
+				reg = <0x900000 0x80000>;
+				read-only;
+			};
+			
+			partition@980000 {
+				label = "ART_1";
+				reg = <0x980000 0x100000>;
+				read-only;
+			};
+			
+			partition@a80000 {
+				label = "TRAINING_1";
+				reg = <0xa80000 0x80000>;
+				read-only;
+			};
+			
+			partition@b00000 {
+				label = "cert";
+				reg = <0xb00000 0x100000>;
+				read-only;
+			};
+			
+			partition@c00000 {
+				label = "cert_1";
+				reg = <0xc00000 0x100000>;
+				read-only;
+			};
+			
+			partition@d00000 {
+				label = "rootfs";
+				reg = <0xd00000 0xf300000>;
+			};
+		};
+	};
+};
+
 &tlmm {
 	mdio1_pins: mdio-state {
 		phandle = <0x0c>;
@@ -322,7 +407,6 @@
 	qcom,caldb-addr = <0x00 0x4cf00000 0x00 0x00 0x00>;
 	qcom,multipd_arch;
 	qcom,board_id = <0x23>;
-	memory-region = <&q6_ipq5018_data>;
 };
 
 &wifi1 {
@@ -336,5 +420,4 @@
 	qcom,caldb-size = <0x500000>;
 	qcom,board_id = <0x60>;
 	qcom,multipd_arch;
-	memory-region = <&q6_qcn6122_data1>;
 };
