@@ -3637,8 +3637,7 @@ diff --git a/include/net/dsa.h b/include/net/dsa.h
 index d7a6c2930..3ace46986 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -54,6 +54,7 @@ struct tc_action;
- #define DSA_TAG_PROTO_RZN1_A5PSW_VALUE		26
+@@ -55,6 +55,7 @@ struct tc_action;
  #define DSA_TAG_PROTO_LAN937X_VALUE		27
  #define DSA_TAG_PROTO_VSC73XX_8021Q_VALUE	28
  #define DSA_TAG_PROTO_BRCM_LEGACY_FCS_VALUE	29
@@ -3646,7 +3645,7 @@ index d7a6c2930..3ace46986 100644
  
  enum dsa_tag_protocol {
  	DSA_TAG_PROTO_NONE		= DSA_TAG_PROTO_NONE_VALUE,
-@@ -85,6 +86,7 @@ enum dsa_tag_protocol {
+@@ -87,6 +88,7 @@ enum dsa_tag_protocol {
  	DSA_TAG_PROTO_RZN1_A5PSW	= DSA_TAG_PROTO_RZN1_A5PSW_VALUE,
  	DSA_TAG_PROTO_LAN937X		= DSA_TAG_PROTO_LAN937X_VALUE,
  	DSA_TAG_PROTO_VSC73XX_8021Q	= DSA_TAG_PROTO_VSC73XX_8021Q_VALUE,
