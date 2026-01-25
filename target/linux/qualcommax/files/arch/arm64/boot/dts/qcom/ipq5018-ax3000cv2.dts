@@ -204,10 +204,6 @@
 	clock-frequency = <0x7d00>;
 };
 
-&xo {
-	clock-frequency = <0x16e3600>;
-};
-
 &blsp1_uart1 {
 	status = "okay";
 	pinctrl-0 = <&uart_pins>;
@@ -263,7 +259,7 @@
 		function = "blsp2_i2c1";
 		drive-strength = <0x08>;
 		bias-disable;
-	}
+	};
 	
 	i2c_sda: i2c-pins {
 		pins = "gpio24";
