@@ -2365,7 +2365,7 @@ $(eval $(call KernelPackage,sparx5-switch))
 define KernelPackage/dsa-yt921x
   SUBMENU:=$(NETWORK_DEVICES_MENU)
   TITLE:=Motorcomm YT921x DSA switch support
-  DEPENDS:=+kmod-dsa-core
+  DEPENDS:=+kmod-dsa
   KCONFIG:= \
     CONFIG_NET_DSA_YT921X \
     CONFIG_NET_DSA_TAG_YT921X
