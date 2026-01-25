@@ -2361,3 +2361,22 @@ define KernelPackage/sparx5-switch/description
 endef
 
 $(eval $(call KernelPackage,sparx5-switch))
+
+define KernelPackage/dsa-yt921x
+  SUBMENU:=$(NETWORK_DEVICES_MENU)
+  TITLE:=Motorcomm YT921x DSA switch support
+  DEPENDS:=+kmod-dsa-core
+  KCONFIG:= \
+    CONFIG_NET_DSA_YT921X \
+    CONFIG_NET_DSA_TAG_YT921X
+  FILES:= \
+    $(LINUX_DIR)/drivers/net/dsa/yt921x.ko \
+    $(LINUX_DIR)/net/dsa/tag_yt921x.ko
+  AUTOLOAD:=$(call AutoLoad,30,tag_yt921x yt921x)
+endef
+
+define KernelPackage/dsa-yt921x/description
+  Kernel module for Motorcomm YT9215/YT9218 DSA switch and Tag protocol
+endef
+
+$(eval $(call KernelPackage,dsa-yt921x))
