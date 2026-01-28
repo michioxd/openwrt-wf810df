@@ -17,66 +17,6 @@
 	model = "FPT AX3000CV2";
 	compatible ="fpt,ax3000cv2", "qcom,ipq5018";
 	
-	reserved-memory {
-		tz@4ac00000 {
-			no-map;
-			reg = <0x00 0x4ac00000 0x00 0x400000>;
-		};
-		
-		q6_code_data: q6_code_data@4B000000 {
-			no-map;
-			reg = <0x00 0x4b000000 0x00 0x40000>;
-		};
-		
-		q6_ipq5018_data: q6_ipq5018_data@4C000000 {
-			no-map;
-			reg = <0x00 0x4c000000 0x00 0xd00000>;
-			phandle = <0x26>;
-		};
-		
-		m3_dump: m3_dump@4CD00000 {
-			no-map;
-			reg = <0x00 0x4cd00000 0x00 0x100000>;
-			phandle = <0x27>;
-		};
-		
-		q6_etr_dump: q6_etr_dump@4CE00000 {
-			no-map;
-			reg = <0x00 0x4ce00000 0x00 0x100000>;
-			phandle = <0x23>;
-		};
-		
-		q6_caldb_region: q6_caldb_region@4CF00000 {
-			no-map;
-			reg = <0x00 0x4cf00000 0x00 0x200000>;
-			phandle = <0x24>;
-		};
-		
-		q6_qcn6122_data1: q6_qcn6122_data1@4D100000 {
-			no-map;
-			reg = <0x00 0x4d100000 0x00 0xd00000>;
-			phandle = <0x28>;
-		};
-		
-		m3_dump_qcn6122_1: m3_dump_qcn6122_1@4DE00000 {
-			no-map;
-			reg = <0x00 0x4de00000 0x00 0x100000>;
-			phandle = <0x29>;
-		};
-		
-		q6_qcn6122_etr_1: q6_qcn6122_etr_1@4DF00000 {
-			no-map;
-			reg = <0x00 0x4df00000 0x00 0x100000>;
-			phandle = <0x2a>;
-		};
-		
-		q6_qcn6122_caldb_1: q6_qcn6122_caldb_1@4E000000 {
-			no-map;
-			reg = <0x00 0x4e000000 0x00 0x500000>;
-			phandle = <0x2b>;
-		};
-	};
-	
 	aliases {
 		serial0 = &blsp1_uart1;
 		
@@ -90,11 +30,8 @@
 	};
 	
 	chosen {
-		bootargs = "console=ttyMSM0,115200,n8 rw init=/init";
-		bootargs-append = " swiotlb=1 coherent_pool=2M ramoops.mem_address=0x4E500000 ramoops.mem_size=0x140000 ramoops.record_size=0x4000 ramoops.console_size=0x4000 ramoops.pmsg_size=0x100000 ramoops.ftrace_size=0x4000 ramoops.ecc=1";
-		stdout-path = "serial0";
-		nvmem-cells = <&serial_number>;
-		nvmem-cell-names = "serial-number";
+		bootargs-append = " swiotlb=1 coherent_pool=2M";
+		stdout-path = "serial0:115200n8";
 	};
 	
 	keys {
@@ -135,10 +72,6 @@
 			gpio = <&tlmm 46 GPIO_ACTIVE_HIGH>;
 		};
 	};
-};
-
-&tz_region {
-	reg = <0x00 0x7000000 0x00 0x58000>;
 };
 
 &xo_clk {
@@ -209,19 +142,6 @@
 				phy-handle = <&sw_phy2>;
 			};
 			
-			// MAC3 -> Phy3 -> WAN
-			port@3 {
-				reg = <3>;
-				label = "wan";
-				phy-handle = <&ge_phy>;
-			};
-			
-			// MAC4 -> Phy4 -> IPQ5018 GE Phy
-			port@4 {
-				reg = <4>;
-			};
-			
-			// MAC8 ---SGMII+---> IPQ5018 MAC1
 			port@8 {
 				reg = <8>;
 				phy-mode = "2500base-x";
@@ -255,7 +175,7 @@
 	};
 };
 
-// MAC0 --- GE Phy (internal) -- working do not touch
+// MAC0 --- GE Phy (internal)
 &dp1 {
 	status = "okay";
 	
@@ -589,30 +509,27 @@
 	};
 };
 
-&intc {
-	reg = <0xb000000 0x1000 0xb002000 0x1000 0xb001000 0x1000 0xb004000 0x1000>;
-};
-
 &q6v5_wcss {
 	boot-args = <0x01 0x04 0x03 0x0f 0x00 0x00 0x02 0x04 0x02 0x12 0x00 0x00>;
 };
 
 &wifi {
 	status = "okay";
+	
 	qcom,rproc = <&q6_wcss_pd1>;
 	qcom,userpd-subsys-name = "q6v5_wcss_userpd1";
 	qcom,ath11k-calibration-variant = "FPT-AX3000CV2";
 	qcom,ath11k-fw-memory-mode = <1>;
-	qcom,bdf-addr = <0x4c000000>;
-	qcom,m3-dump-addr = <0x4cd00000>;
+	qcom,bdf-addr = <0x4c400000>;
 };
 
 &wifi1 {
 	status = "okay";
+	
 	qcom,rproc = <&q6_wcss_pd2>;
 	qcom,ath11k-fw-memory-mode = <1>;
 	qcom,ath11k-calibration-variant = "FPT-AX3000CV2";
 	qcom,userpd-subsys-name = "q6v5_wcss_userpd2";
 	qcom,bdf-addr = <0x4d100000>;
-	qcom,m3-dump-addr = <0x4de00000>;
+	qcom,m3-dump-addr = <0x4df00000>;
 };
