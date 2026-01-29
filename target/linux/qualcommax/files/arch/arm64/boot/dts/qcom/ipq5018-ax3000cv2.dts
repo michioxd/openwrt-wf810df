@@ -93,58 +93,84 @@
 
 &mdio1 {
 	status = "okay";
+	pinctrl-0 = <&mdio1_pins>;
+	pinctrl-names = "default";
+	phy-reset-gpio = <&tlmm 0x23 GPIO_ACTIVE_HIGH>;
+	phy-reset-active = <0x01>;
+	cig_clk_div = <0xff>;
 	
 	yt9215: switch@1d {
-		compatible = "motorcomm,yt921x";
+		compatible = "motorcomm,yt9215";
 		reg = <29>;
-		switchid = <0>;
-		
-		reset-gpios = <&tlmm 39 GPIO_ACTIVE_LOW>;
-		reset-assert-us = <10000>; /* 10ms */
-		reset-deassert-us = <50000>; /* 50ms */
+		reset-gpios = <&tlmm 35 GPIO_ACTIVE_HIGH>;
+		reset-assert-us = <20000>;
+		reset-deassert-us = <300000>;
 		
 		mdio {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			
 			sw_phy0: phy@0 {
-				reg = <0x0>;
+				reg = <0>;
 			};
-			
 			sw_phy1: phy@1 {
-				reg = <0x1>;
+				reg = <1>;
 			};
-			
 			sw_phy2: phy@2 {
-				reg = <0x2>;
+				reg = <2>;
+			};
+			sw_phy3: phy@3 {
+				reg = <3>;
+			};
+			sw_phy4: phy@4 {
+				reg = <4>;
 			};
 		};
 		
 		ports {
-			// MAC0 -> Phy0 -> LAN1
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
 			port@0 {
 				reg = <0>;
 				label = "lan1";
+				phy-mode = "internal";
 				phy-handle = <&sw_phy0>;
 			};
 			
-			// MAC1 -> Phy1 -> LAN2
 			port@1 {
 				reg = <1>;
 				label = "lan2";
+				phy-mode = "internal";
 				phy-handle = <&sw_phy1>;
 			};
 			
-			// MAC2 -> Phy2 -> LAN3
 			port@2 {
 				reg = <2>;
 				label = "lan3";
+				phy-mode = "internal";
 				phy-handle = <&sw_phy2>;
+			};
+			
+			port@3 {
+				reg = <3>;
+				label = "lan4";
+				phy-mode = "internal";
+				phy-handle = <&sw_phy3>;
+			};
+			
+			port@4 {
+				reg = <4>;
+				label = "lan5";
+				phy-mode = "internal";
+				phy-handle = <&sw_phy4>;
 			};
 			
 			port@8 {
 				reg = <8>;
+				label = "lan2cpu";
 				phy-mode = "2500base-x";
+				ethernet = <&dp2>;
 				
 				fixed-link {
 					speed = <2500>;
@@ -168,9 +194,11 @@
 		
 		port@1 {
 			port_id = <0x02>;
-			forced-speed = <0x9c4>;
-			forced-duplex = <0x01>;
+			forced-speed = <2500>;
+			forced-duplex = <1>;
 			mdiobus = <&mdio1>;
+			phy_address = <8>;
+			port_mac_sel = "QGMAC_PORT";
 		};
 	};
 };
@@ -188,10 +216,13 @@
 &dp2 {
 	status = "okay";
 	label = "lan";
-	phy-mode = "2500base-x";
-	phy-handle = <&yt9215>;
 	nvmem-cells = <&macaddr_appsblenv_ethaddr 1>;
 	nvmem-cell-names = "mac-address";
+	
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
 };
 
 &blsp1_uart1 {
@@ -204,7 +235,19 @@
 	status = "okay";
 };
 
+&cryptobam {
+	status = "okay";
+};
+
+&prng {
+	status = "okay";
+};
+
 &qfprom {
+	status = "okay";
+};
+
+&qpic_bam {
 	status = "okay";
 };
 
@@ -214,9 +257,10 @@
 	pinctrl-names = "default";
 	
 	nandcs@0 {
-		compatible = "qcom,nandcs";
+		compatible = "spi-nand";
 		reg = <0>;
 		
+		nand-ecc-engine = <&qpic_nand>;
 		nand-ecc-strength = <4>;
 		nand-ecc-step-size = <512>;
 		nand-bus-width = <8>;
@@ -370,9 +414,7 @@
 };
 
 &tlmm {
-	mdio1_pins: mdio_state {
-		phandle = <0x0c>;
-		
+	mdio1_pins: mdio-state {
 		mdc {
 			pins = "gpio36";
 			function = "mdc";
@@ -388,7 +430,7 @@
 		};
 	};
 	
-	leds_pins: leds_pins {
+	leds_pins: leds-pins {
 		led_white {
 			pins = "gpio46";
 			function = "gpio";
@@ -404,29 +446,29 @@
 		};
 	};
 	
-	button_pins: button_pins {
+	button_pins: button-pins {
 		pins = "gpio27", "gpio26";
 		function = "gpio";
 		drive-strength = <8>;
 		bias-pull-up;
 	};
 	
-	qpic_pins: qpic_state {
-		clock {
+	qpic_pins: qpic-state {
+		clock-pins {
 			pins = "gpio9";
 			function = "qspi_clk";
 			drive-strength = <8>;
 			bias-disable;
 		};
 		
-		cs {
+		cs-pins {
 			pins = "gpio8";
 			function = "qspi_cs";
 			drive-strength = <8>;
 			bias-disable;
 		};
 		
-		data {
+		data-pins {
 			pins = "gpio4", "gpio5", "gpio6", "gpio7";
 			function = "qspi_data";
 			drive-strength = <8>;
@@ -434,7 +476,7 @@
 		};
 	};
 	
-	i2c_pins: i2c_pins {
+	i2c_pins: i2c-pins {
 		i2c_scl {
 			pins = "gpio25";
 			function = "blsp2_i2c1";
@@ -450,7 +492,7 @@
 		};
 	};
 	
-	uart_pins: uart0_state {
+	uart_pins: uart0-state {
 		pins = "gpio20","gpio21";
 		function = "blsp0_uart0";
 		bias-disable;
@@ -461,31 +503,6 @@
 		function = "blsp0_spi1";
 		drive-strength = <0x02>;
 		bias-disable;
-	};
-	
-	qspi_nand_pins {
-		phandle = <0x19>;
-		
-		qspi_clock {
-			pins = "gpio9";
-			function = "qspi_clk";
-			drive-strength = <0x08>;
-			bias-disable;
-		};
-		
-		qspi_cs {
-			pins = "gpio8";
-			function = "qspi_cs";
-			drive-strength = <0x08>;
-			bias-disable;
-		};
-		
-		qspi_data {
-			pins = "gpio4\0gpio5\0gpio6\0gpio7";
-			function = "qspi_data";
-			drive-strength = <0x08>;
-			bias-disable;
-		};
 	};
 	
 	pwm_pinmux {
