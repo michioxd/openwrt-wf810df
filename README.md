@@ -35,4 +35,6 @@ soon
 
 ## License
 
-GPL-2.0
+OpenWrt License: [GPL-2.0](https://openwrt.org/license)
+
+This repository:  GPL-2.0
