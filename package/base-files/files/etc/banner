@@ -7,6 +7,12 @@
  %D %V, %C
  -----------------------------------------------------
 
-OpenWrt for WF-810DF/FPT AX3000CV2 by michioxd >///<
-GitHub: https://github.com/michioxd/openwrt-wf810df
-Happy hacking! :>
+ === Hi there! =======================================
+ This OpenWrt build is UNOFFICIAL!
+ For WF-810DF or FPT AX3000CV2 device only.
+ You are responsible for any damage caused by using 
+ this OpenWrt build. Use it at your own risk!
+ 
+ Brought to you by michioxd >///<
+ https://github.com/michioxd/openwrt-wf810df 
+ ---------------------------------- Happy hacking! ---

@@ -43,16 +43,17 @@
 			label = "reset";
 			gpios = <&tlmm 27 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_RESTART>;
-			linux,input-type = <0x01>;
-			debounce-interval = <0x3c>;
+			linux,input-type = <EV_KEY>;
+			debounce-interval = <60>;
 		};
 		
+		// in original dump they named it "mesh" but it's WPS button lol
 		mesh {
 			label = "mesh";
 			gpios = <&tlmm 26 GPIO_ACTIVE_LOW>;
 			linux,code = <KEY_WPS_BUTTON>;
-			linux,input-type = <0x01>;
-			debounce-interval = <0x3c>;
+			linux,input-type = <EV_KEY>;
+			debounce-interval = <60>;
 		};
 	};
 	
@@ -62,8 +63,8 @@
 		pinctrl-names = "default";
 		
 		led_red: led-red {
-			label = "red:system";
-			gpio = <&tlmm 30 GPIO_ACTIVE_HIGH>;
+			label = "red:power";
+			gpios = <&tlmm 30 GPIO_ACTIVE_HIGH>;
 			default-state = "on";
 		};
 		
@@ -93,7 +94,7 @@
 
 &mdio1 {
 	status = "okay";
-	pinctrl-0 = <&mdio1_pins>;
+	pinctrl-0 = <&mdio1_pins &switch_rst_pins>;
 	pinctrl-names = "default";
 	phy-reset-gpio = <&tlmm 0x23 GPIO_ACTIVE_HIGH>;
 	phy-reset-active = <0x01>;
@@ -102,8 +103,9 @@
 	yt9215: switch@1d {
 		compatible = "motorcomm,yt9215";
 		reg = <29>;
+		switchid = <0>;
 		reset-gpios = <&tlmm 35 GPIO_ACTIVE_HIGH>;
-		reset-assert-us = <20000>;
+		reset-assert-us = <10000>;
 		reset-deassert-us = <300000>;
 		
 		mdio {
@@ -430,6 +432,14 @@
 		};
 	};
 	
+	switch_rst_pins: switch-rst-pins {
+		pins = "gpio35";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-pull-down;
+		output-low;
+	};
+	
 	leds_pins: leds-pins {
 		led_white {
 			pins = "gpio46";
@@ -535,7 +545,7 @@
 	
 	qcom,rproc = <&q6_wcss_pd1>;
 	qcom,userpd-subsys-name = "q6v5_wcss_userpd1";
-	qcom,ath11k-calibration-variant = "FPT-AX3000CV2";
+	qcom,ath11k-calibration-variant = "WF810DF";
 	qcom,ath11k-fw-memory-mode = <1>;
 	qcom,bdf-addr = <0x4c400000>;
 };
@@ -545,7 +555,7 @@
 	
 	qcom,rproc = <&q6_wcss_pd2>;
 	qcom,ath11k-fw-memory-mode = <1>;
-	qcom,ath11k-calibration-variant = "FPT-AX3000CV2";
+	qcom,ath11k-calibration-variant = "WF810DF";
 	qcom,userpd-subsys-name = "q6v5_wcss_userpd2";
 	qcom,bdf-addr = <0x4d100000>;
 	qcom,m3-dump-addr = <0x4df00000>;
