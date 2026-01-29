@@ -1,6 +1,6 @@
 ![OpenWrt logo](include/logo.png)
 
-OpenWrt for **FPT AX3000CV2 (also known as Actiontec WF-810DF)**.  
+Unofficial [**OpenWrt**](https://openwrt.org/) for **FPT AX3000CV2 (also known as Actiontec WF-810DF)**.  
 See the official OpenWrt README for general build instructions and project information: [click here](https://github.com/openwrt/openwrt/blob/master/README.md)
 
 This build mainly targets the upcoming [**OpenWrt 25.12 mainstream release**](https://github.com/openwrt/openwrt/tree/openwrt-25.12). We keep all changes as close to upstream OpenWrt as possible.
