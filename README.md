@@ -15,7 +15,7 @@ Additional work may include device bring-up, hardware validation, driver fixes, 
 - **Wi-Fi:**
   - Internal (2.4GHz)
   - Qualcomm QCN6102 (5GHz AX)
-- Ethernet:
+- **Ethernet:**
   - 3x ports 1GbE Switch Motorcomm YT9215S
   - 1x port 1GbE WAN Internal
 
