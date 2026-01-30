@@ -9,11 +9,15 @@ Additional work may include device bring-up, hardware validation, driver fixes, 
 
 ## Specifications
 
-- SoC: Qualcomm IPQ5018
-- RAM: 512 MB NYANA NT5CC256M16ER-EK
-- NAND: 256 MB GigaDevice GD5F2GM7REYIG
-- WiFi: Internal IPQ5018 (2.4GHz) + QCA6102 (5GHz AX)
-- Ethernet: 3x 1GbE Switch Motorcomm YT9215S + 1x 1GbE Internal IPQ5018 WAN
+- **SoC:** Qualcomm IPQ5018
+- **RAM:** 512 MB NYANA `NT5CC256M16ER-EK`
+- **NAND:** 256 MB GigaDevice `GD5F2GM7REYIG`
+- **Wi-Fi:**
+  - Internal (2.4GHz)
+  - Qualcomm QCN6102 (5GHz AX)
+- Ethernet:
+  - 3x ports 1GbE Switch Motorcomm YT9215S
+  - 1x port 1GbE WAN Internal
 
 ## Hardware working status
 
