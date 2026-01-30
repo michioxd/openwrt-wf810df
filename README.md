@@ -23,19 +23,33 @@ Additional work may include device bring-up, hardware validation, driver fixes, 
 
 - [x] Internal IPQ5018 WAN
 - [ ] 3x 1GbE Switch Motorcomm YT9215S
-- [x] 2.4GHz WiFi (Internal IPQ5018)
-- [x] 5GHz WiFi (QCA6102)
+- [x] 2.4GHz Wi-Fi (SoC)
+- [x] 5GHz Wi-Fi (QCN6102)
 - [x] NAND Flash
 - [ ] LEDs (Red/White) *(unknown state)*
 - [x] Buttons (Reset/WPS (aka Mesh button))
 
-## Software working status
+## External resources
 
-soon...
+These resources were dumped from the original firmware:
+
+- WLAN Firmware `WLAN.HK.2.8-01357-QCAHKSWPL_SILICONZ-1.56794.4 v1`
+  - [IPQ5081](https://github.com/michioxd/upstream-wifi-fw/tree/main/ath11k-firmware/IPQ5018_QCN6122_QCN6122/hw1.0/2.8/WLAN.HK.2.8-01357-QCAHKSWPL_SILICONZ-1.56794.4)
+  - [QCN6122  (usable on QCN6102)](https://github.com/michioxd/upstream-wifi-fw/tree/main/ath11k-firmware/IPQ5018_QCN6122_QCN6122/hw1.0/2.8/WLAN.HK.2.8-01357-QCAHKSWPL_SILICONZ-1.56794.4/qcn6122)
+- WLAN Calibration data:
+  - [WF-810DF 2.4GHz](https://github.com/michioxd/upstream-wifi-fw/blob/main/ath11k-firmware/IPQ5018_QCN6122_QCN6122/hw1.0/2.8/WLAN.HK.2.8-01357-QCAHKSWPL_SILICONZ-1.56794.4/cal-ahb-c000000.wifi.bin)
+  - [WF-810DF 5GHz](https://github.com/michioxd/upstream-wifi-fw/blob/main/ath11k-firmware/IPQ5018_QCN6122_QCN6122/hw1.0/2.8/WLAN.HK.2.8-01357-QCAHKSWPL_SILICONZ-1.56794.4/qcn6122/cal-ahb-b00a040.wifi.bin)
+- WLAN Board data:
+  - [WF-810DF 2.4GHz](https://github.com/michioxd/upstream-wifi-fw/blob/main/ath11k-firmware/IPQ5018_QCN6122_QCN6122/hw1.0/2.8/WLAN.HK.2.8-01357-QCAHKSWPL_SILICONZ-1.56794.4/board-2.bin)
+  - [WF-810DF 5GHz](https://github.com/michioxd/upstream-wifi-fw/blob/main/ath11k-firmware/IPQ5018_QCN6122_QCN6122/hw1.0/2.8/WLAN.HK.2.8-01357-QCAHKSWPL_SILICONZ-1.56794.4/qcn6122/board-2.bin)
 
 ## Download
 
-soon
+soon...
+
+## Installation
+
+soon...
 
 ## License
 
