@@ -8,12 +8,14 @@ Subject: [PATCH] net: dsa: backport yt921x driver from net-next
  drivers/net/dsa/Makefile      |    1 +
  drivers/net/dsa/yt921x.c      | 3006 +++++++++++++++++++++++++++++++++
  drivers/net/dsa/yt921x.h      |  567 +++++++
- include/net/dsa.h             |    2 +
+ include/net/dsa.h             |   11 +
  include/uapi/linux/if_ether.h |    1 +
  net/dsa/Kconfig               |    5 +
  net/dsa/Makefile              |    1 +
  net/dsa/tag_yt921x.c          |  139 ++
- 9 files changed, 3729 insertions(+)
+ net/dsa/dsa.c                 | 64 +++++++++++++++++++++++++++++++++++++++++++++++
+ net/dsa/tag.h                 | 18 ++++++++++++++++++
+ 11 files changed, 3820 insertions(+)
  create mode 100644 drivers/net/dsa/yt921x.c
  create mode 100644 drivers/net/dsa/yt921x.h
  create mode 100644 net/dsa/tag_yt921x.c
@@ -51,7 +53,7 @@ new file mode 100644
 index 000000000..efeed24d2
 --- /dev/null
 +++ b/drivers/net/dsa/yt921x.c
-@@ -0,0 +1,3006 @@
+@@ -0,0 +1,3007 @@
 +// SPDX-License-Identifier: GPL-2.0-or-later
 +/*
 + * Driver for Motorcomm YT921x Switch
@@ -736,21 +738,22 @@ index 000000000..efeed24d2
 +		const struct yt921x_mib_desc *desc = &yt921x_mib_descs[i];
 +		u32 reg = YT921X_MIBn_DATA0(port) + desc->offset;
 +		u64 *valp = &((u64 *)mib)[i];
-+		u64 val = *valp;
 +		u32 val0;
-+		u32 val1;
++		u64 val;
 +
 +		res = yt921x_reg_read(priv, reg, &val0);
 +		if (res)
 +			break;
 +
 +		if (desc->size <= 1) {
-+			if (val < (u32)val)
-+				/* overflow */
-+				val += (u64)U32_MAX + 1;
-+			val &= ~U32_MAX;
-+			val |= val0;
++			u64 old_val = *valp;
++
++			val = (old_val & ~(u64)U32_MAX) | val0;
++			if (val < old_val)
++				val += 1ull << 32;
 +		} else {
++			u32 val1;
++
 +			res = yt921x_reg_read(priv, reg + 4, &val1);
 +			if (res)
 +				break;
@@ -3653,6 +3656,22 @@ index d7a6c2930..3ace46986 100644
  };
  
  struct dsa_switch;
+@@ -1338,6 +1338,15 @@ bool dsa_mdb_present_in_other_db(struct dsa_switch *ds, int port,
+ 				 const struct switchdev_obj_port_mdb *mdb,
+ 				 struct dsa_db db);
+ 
++int dsa_port_simple_hsr_validate(struct dsa_switch *ds, int port,
++				 struct net_device *hsr,
++				 struct netlink_ext_ack *extack);
++int dsa_port_simple_hsr_join(struct dsa_switch *ds, int port,
++			     struct net_device *hsr,
++			     struct netlink_ext_ack *extack);
++int dsa_port_simple_hsr_leave(struct dsa_switch *ds, int port,
++			      struct net_device *hsr);
++
+ /* Keep inline for faster access in hot path */
+ static inline bool netdev_uses_dsa(const struct net_device *dev)
+ {
 diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
 index 69e0457eb..cfd200c87 100644
 --- a/include/uapi/linux/if_ether.h
@@ -3837,6 +3856,119 @@ index 000000000..6ac479704
 +
 +module_dsa_tag_driver(yt921x_netdev_ops);
 \ No newline at end of file
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 97599e0..16b19aa 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -9,6 +9,7 @@
+ 
+ #include <linux/device.h>
+ #include <linux/err.h>
++#include <linux/if_hsr.h>
+ #include <linux/list.h>
+ #include <linux/module.h>
+ #include <linux/netdevice.h>
+@@ -1768,6 +1768,70 @@ bool dsa_mdb_present_in_other_db(struct dsa_switch *ds, int port,
+ }
+ EXPORT_SYMBOL_GPL(dsa_mdb_present_in_other_db);
+ 
++/* Helpers for switches without specific HSR offloads, but which can implement
++ * NETIF_F_HW_HSR_DUP because their tagger uses dsa_xmit_port_mask()
++ */
++int dsa_port_simple_hsr_validate(struct dsa_switch *ds, int port,
++				 struct net_device *hsr,
++				 struct netlink_ext_ack *extack)
++{
++	enum hsr_port_type type;
++	int err;
++
++	err = hsr_get_port_type(hsr, dsa_to_port(ds, port)->user, &type);
++	if (err)
++		return err;
++
++	if (type != HSR_PT_SLAVE_A && type != HSR_PT_SLAVE_B) {
++		NL_SET_ERR_MSG_MOD(extack,
++				   "Only HSR slave ports can be offloaded");
++		return -EOPNOTSUPP;
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(dsa_port_simple_hsr_validate);
++
++int dsa_port_simple_hsr_join(struct dsa_switch *ds, int port,
++			     struct net_device *hsr,
++			     struct netlink_ext_ack *extack)
++{
++	struct dsa_port *dp = dsa_to_port(ds, port), *other_dp;
++	int err;
++
++	err = dsa_port_simple_hsr_validate(ds, port, hsr, extack);
++	if (err)
++		return err;
++
++	dsa_hsr_foreach_port(other_dp, ds, hsr) {
++		if (other_dp != dp) {
++			dp->user->features |= NETIF_F_HW_HSR_DUP;
++			other_dp->user->features |= NETIF_F_HW_HSR_DUP;
++			break;
++		}
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(dsa_port_simple_hsr_join);
++
++int dsa_port_simple_hsr_leave(struct dsa_switch *ds, int port,
++			      struct net_device *hsr)
++{
++	struct dsa_port *dp = dsa_to_port(ds, port), *other_dp;
++
++	dsa_hsr_foreach_port(other_dp, ds, hsr) {
++		if (other_dp != dp) {
++			dp->user->features &= ~NETIF_F_HW_HSR_DUP;
++			other_dp->user->features &= ~NETIF_F_HW_HSR_DUP;
++			break;
++		}
++	}
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(dsa_port_simple_hsr_leave);
++
+ static const struct dsa_stubs __dsa_stubs = {
+ 	.conduit_hwtstamp_validate = __dsa_conduit_hwtstamp_validate,
+ };
+
+diff --git a/net/dsa/tag.h b/net/dsa/tag.h
+index 5d80dda..cf52283 100644
+--- a/net/dsa/tag.h
++++ b/net/dsa/tag.h
+@@ -319,6 +319,24 @@ static inline void *dsa_etype_header_pos_tx(struct sk_buff *skb)
+ 	return skb->data + 2 * ETH_ALEN;
+ }
+ 
++static inline unsigned long dsa_xmit_port_mask(const struct sk_buff *skb,
++					       const struct net_device *dev)
++{
++	struct dsa_port *dp = dsa_user_to_port(dev);
++	unsigned long mask = BIT(dp->index);
++
++	if (IS_ENABLED(CONFIG_HSR) &&
++	    unlikely(dev->features & NETIF_F_HW_HSR_DUP)) {
++		struct net_device *hsr_dev = dp->hsr_dev;
++		struct dsa_port *other_dp;
++
++		dsa_hsr_foreach_port(other_dp, dp->ds, hsr_dev)
++			mask |= BIT(other_dp->index);
++	}
++
++	return mask;
++}
++
+ /* Create 2 modaliases per tagging protocol, one to auto-load the module
+  * given the ID reported by get_tag_protocol(), and the other by name.
+  */
 -- 
 2.43.0
 

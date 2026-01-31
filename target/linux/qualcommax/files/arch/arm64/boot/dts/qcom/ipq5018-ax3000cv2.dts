@@ -63,14 +63,15 @@
 		pinctrl-names = "default";
 		
 		led_red: led-red {
-			label = "red:power";
+			color = <LED_COLOR_ID_RED>;
 			gpios = <&tlmm 30 GPIO_ACTIVE_HIGH>;
-			default-state = "on";
+			function = LED_FUNCTION_POWER;
 		};
 		
 		led_white: led-white {
-			label = "white:system";
+			color = <LED_COLOR_ID_WHITE>;
 			gpio = <&tlmm 46 GPIO_ACTIVE_HIGH>;
+			function = LED_FUNCTION_WAN_ONLINE;
 		};
 	};
 };
@@ -83,30 +84,23 @@
 	clock-frequency = <0x7d00>;
 };
 
-&tsens {
-	nvmem-cells = <0x53>;
-	nvmem-cell-names = "calib";
-};
-
 &mdio0 {
 	status = "okay";
 };
 
 &mdio1 {
 	status = "okay";
-	pinctrl-0 = <&mdio1_pins &switch_rst_pins>;
+	pinctrl-0 = <&mdio1_pins>;
 	pinctrl-names = "default";
-	phy-reset-gpio = <&tlmm 0x23 GPIO_ACTIVE_HIGH>;
-	phy-reset-active = <0x01>;
 	cig_clk_div = <0xff>;
 	
-	yt9215: switch@1d {
+	yt9215: switch@0 {
 		compatible = "motorcomm,yt9215";
-		reg = <29>;
+		reg = <0x1d>;
 		switchid = <0>;
-		reset-gpios = <&tlmm 35 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&tlmm 35 GPIO_ACTIVE_LOW>;
 		reset-assert-us = <10000>;
-		reset-deassert-us = <300000>;
+		reset-deassert-us = <50000>;
 		
 		mdio {
 			#address-cells = <1>;
@@ -170,8 +164,7 @@
 			
 			port@8 {
 				reg = <8>;
-				label = "lan2cpu";
-				phy-mode = "2500base-x";
+				phy-mode = "sgmii";
 				ethernet = <&dp2>;
 				
 				fixed-link {
@@ -189,32 +182,28 @@
 	
 	qcom,port_phyinfo {
 		port@0 {
-			port_id = <0x01>;
+			port_id = <1>;
 			mdiobus = <&mdio0>;
-			phy_address = <0x07>;
+			phy_address = <7>;
 		};
 		
 		port@1 {
-			port_id = <0x02>;
+			port_id = <2>;
 			forced-speed = <2500>;
 			forced-duplex = <1>;
 			mdiobus = <&mdio1>;
-			phy_address = <8>;
 			port_mac_sel = "QGMAC_PORT";
 		};
 	};
 };
 
-// MAC0 --- GE Phy (internal)
 &dp1 {
 	status = "okay";
-	
 	label = "wan";
 	nvmem-cells = <&macaddr_appsblenv_ethaddr 0>;
 	nvmem-cell-names = "mac-address";
 };
 
-// MAC1 ---SGMII---> YT9215 Phy
 &dp2 {
 	status = "okay";
 	label = "lan";
@@ -417,14 +406,14 @@
 
 &tlmm {
 	mdio1_pins: mdio-state {
-		mdc {
+		mdc-pins {
 			pins = "gpio36";
 			function = "mdc";
 			drive-strength = <8>;
 			bias-pull-up;
 		};
 		
-		mdio {
+		mdio-pins {
 			pins = "gpio37";
 			function = "mdio";
 			drive-strength = <8>;
@@ -432,28 +421,11 @@
 		};
 	};
 	
-	switch_rst_pins: switch-rst-pins {
-		pins = "gpio35";
+	leds_pins: leds-pins {
+		pins = "gpio46", "gpio30";
 		function = "gpio";
 		drive-strength = <8>;
 		bias-pull-down;
-		output-low;
-	};
-	
-	leds_pins: leds-pins {
-		led_white {
-			pins = "gpio46";
-			function = "gpio";
-			drive-strength = <8>;
-			bias-pull-down;
-		};
-		
-		led_red {
-			pins = "gpio30";
-			function = "gpio";
-			drive-strength = <8>;
-			bias-pull-down;
-		};
 	};
 	
 	button_pins: button-pins {
@@ -486,53 +458,10 @@
 		};
 	};
 	
-	i2c_pins: i2c-pins {
-		i2c_scl {
-			pins = "gpio25";
-			function = "blsp2_i2c1";
-			drive-strength = <0x08>;
-			bias-disable;
-		};
-		
-		i2c_sda {
-			pins = "gpio26";
-			function = "blsp2_i2c1";
-			drive-strength = <0x08>;
-			bias-disable;
-		};
-	};
-	
 	uart_pins: uart0-state {
 		pins = "gpio20","gpio21";
 		function = "blsp0_uart0";
 		bias-disable;
-	};
-	
-	blsp0_spi_pins {
-		pins = "gpio10", "gpio11", "gpio12", "gpio13";
-		function = "blsp0_spi1";
-		drive-strength = <0x02>;
-		bias-disable;
-	};
-	
-	pwm_pinmux {
-		mux_1 {
-			pins = "gpio0";
-			function = "pwm10";
-			drive-strength = <0x08>;
-		};
-		
-		mux_2 {
-			pins = "gpio1";
-			function = "pwm20";
-			drive-strength = <0x08>;
-		};
-		
-		mux_3 {
-			pins = "gpio45";
-			function = "pwm3";
-			drive-strength = <0x08>;
-		};
 	};
 };
 

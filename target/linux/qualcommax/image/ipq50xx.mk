@@ -244,7 +244,6 @@ define Device/fpt_ax3000cv2
 	PAGESIZE := 2048
 	NAND_SIZE := 256m
 	DEVICE_PACKAGES := ath11k-firmware-ipq5018-qcn6122 \
-		ipq-wifi-fpt_ax3000cv2 \
-		kmod-dsa-yt921x
+		ipq-wifi-fpt_ax3000cv2
 endef
 TARGET_DEVICES += fpt_ax3000cv2
