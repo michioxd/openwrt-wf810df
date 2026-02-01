@@ -55,11 +55,17 @@ Check out the latest version in the [Releases](https://github.com/michioxd/openw
 ## Installation
 
 > [!CAUTION]
-> **DISCLAIMER:**
-> Please use this firmware responsibly and at your own risk.
-> I take no responsibility or liability for any damage, data loss, device malfunction, or other issues that may occur as a result of using it.
-> This includes, but is not limited to, bricked devices, system instability, or permanent hardware/software damage.
-> By using this, you acknowledge that you understand the risks involved and agree that you are solely responsible for any consequences.
+> **IMPORTANT DISCLAIMER – READ CAREFULLY**
+>
+> This firmware is provided **AS IS** and is intended for **advanced users only**.  
+> **USE IT ENTIRELY AT YOUR OWN RISK.**
+>
+> I **explicitly disclaim all responsibility and liability** for any damage, data loss, device malfunction, or other issues that may arise from its use.
+> This includes, but is **not limited to**, **permanently bricked devices**, system instability, loss of functionality, or irreversible hardware/software damage.
+>
+> By proceeding, you **acknowledge that you fully understand the risks involved**, accept that firmware flashing is inherently dangerous, and agree that **you alone are solely and fully responsible for all consequences**, whether expected or unexpected.
+>
+> **If you do not fully understand what you are doing, STOP NOW and DO NOT CONTINUE.**
 
 <details>
 <summary>I'm sure, lemme "rock" my device</summary>
