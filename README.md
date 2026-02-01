@@ -29,6 +29,11 @@ Additional work may include device bring-up, hardware validation, driver fixes, 
 - [ ] LEDs (Red/White) *(unknown state)*
 - [x] Buttons (Reset/WPS (aka Mesh button))
 
+### Known issues
+
+- YT9215S just return `0xffffffff` for somehow (is that MDIO `90000` issue or what).
+- LED still not working
+
 ## External resources
 
 These resources were dumped from the original firmware:
