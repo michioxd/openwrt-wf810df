@@ -196,3 +196,8 @@ Now you can use `run bootowrt` to boot into the new firmware, or simply run `res
 OpenWrt License: [GPL-2.0](https://openwrt.org/license)
 
 This repository:  GPL-2.0
+
+## Thanks
+
+- OpenWrt Project and all its contributors
+- Contributors of [this repository](https://github.com/michioxd/openwrt-wf810df/graphs/contributors)
