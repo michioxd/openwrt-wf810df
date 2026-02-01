@@ -249,9 +249,8 @@
 	nandcs@0 {
 		compatible = "spi-nand";
 		reg = <0>;
-		
 		nand-ecc-engine = <&qpic_nand>;
-		nand-ecc-strength = <4>;
+		nand-ecc-strength = <8>;
 		nand-ecc-step-size = <512>;
 		nand-bus-width = <8>;
 		
