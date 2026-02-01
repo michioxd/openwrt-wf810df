@@ -73,6 +73,28 @@ Check out the latest version in the [Releases](https://github.com/michioxd/openw
   ESP32 used as a UART bridge
 
   ![img](https://github.com/user-attachments/assets/3e4140af-9982-4330-b0f6-5b8d51853c84)
+
+  Code to use ESP32 as UART bridge:
+
+  ```c
+  #include <HardwareSerial.h>
+  
+  #define RX 14
+  #define TX 13
+  
+  HardwareSerial sr(2);
+  
+  void setup() {
+    Serial.begin(115200);
+    sr.begin(115200, SERIAL_8N1, RX, TX);
+  }
+  
+  void loop() {
+    while (Serial.available()) sr.write(Serial.read());
+    while (sr.available())     Serial.write(sr.read());
+  }
+  ```
+  
   </details>
 - A computer with TFTP software (Tftpd or similar), and you must know your PC/Gateway IP address.
 
