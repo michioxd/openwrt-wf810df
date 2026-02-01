@@ -30,7 +30,7 @@
 	};
 	
 	chosen {
-		bootargs-append = " swiotlb=1 coherent_pool=2M";
+		bootargs-append = " coherent_pool=2M";
 		stdout-path = "serial0:115200n8";
 	};
 	
@@ -84,6 +84,54 @@
 	clock-frequency = <0x7d00>;
 };
 
+&switch {
+	status = "okay";
+	switch_mac_mode = <MAC_MODE_SGMII_CHANNEL0>;
+	
+	qcom,port_phyinfo {
+		port@0 {
+			port_id = <1>;
+			mdiobus = <&mdio0>;
+			phy_address = <7>;
+		};
+		
+		port@1 {
+			port_id = <2>;
+			forced-speed = <2500>;
+			forced-duplex = <1>;
+			mdiobus = <&mdio1>;
+			port_mac_sel = "QGMAC_PORT";
+		};
+	};
+	
+	led_source@0 {
+		source = <0x00>;
+		mode = "normal";
+		speed = "all";
+		blink_en = "enable";
+		active = "high";
+	};
+};
+
+&dp1 {
+	status = "okay";
+	label = "wan";
+	nvmem-cells = <&macaddr_appsblenv_ethaddr 0>;
+	nvmem-cell-names = "mac-address";
+};
+
+&dp2 {
+	status = "okay";
+	label = "lan";
+	nvmem-cells = <&macaddr_appsblenv_ethaddr 1>;
+	nvmem-cell-names = "mac-address";
+	
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
+};
+
 &mdio0 {
 	status = "okay";
 };
@@ -99,28 +147,21 @@
 		reg = <0x1d>;
 		switchid = <0>;
 		reset-gpios = <&tlmm 35 GPIO_ACTIVE_LOW>;
-		reset-assert-us = <10000>;
-		reset-deassert-us = <50000>;
 		
-		mdio {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			
-			sw_phy0: phy@0 {
-				reg = <0>;
-			};
-			sw_phy1: phy@1 {
-				reg = <1>;
-			};
-			sw_phy2: phy@2 {
-				reg = <2>;
-			};
-			sw_phy3: phy@3 {
-				reg = <3>;
-			};
-			sw_phy4: phy@4 {
-				reg = <4>;
-			};
+		sw_phy0: phy@0 {
+			reg = <0>;
+		};
+		sw_phy1: phy@1 {
+			reg = <1>;
+		};
+		sw_phy2: phy@2 {
+			reg = <2>;
+		};
+		sw_phy3: phy@3 {
+			reg = <3>;
+		};
+		sw_phy4: phy@4 {
+			reg = <4>;
 		};
 		
 		ports {
@@ -173,46 +214,6 @@
 				};
 			};
 		};
-	};
-};
-
-&switch {
-	status = "okay";
-	switch_mac_mode = <MAC_MODE_SGMII_CHANNEL0>;
-	
-	qcom,port_phyinfo {
-		port@0 {
-			port_id = <1>;
-			mdiobus = <&mdio0>;
-			phy_address = <7>;
-		};
-		
-		port@1 {
-			port_id = <2>;
-			forced-speed = <2500>;
-			forced-duplex = <1>;
-			mdiobus = <&mdio1>;
-			port_mac_sel = "QGMAC_PORT";
-		};
-	};
-};
-
-&dp1 {
-	status = "okay";
-	label = "wan";
-	nvmem-cells = <&macaddr_appsblenv_ethaddr 0>;
-	nvmem-cell-names = "mac-address";
-};
-
-&dp2 {
-	status = "okay";
-	label = "lan";
-	nvmem-cells = <&macaddr_appsblenv_ethaddr 1>;
-	nvmem-cell-names = "mac-address";
-	
-	fixed-link {
-		speed = <1000>;
-		full-duplex;
 	};
 };
 
