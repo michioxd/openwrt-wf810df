@@ -47,7 +47,6 @@
 			debounce-interval = <60>;
 		};
 		
-		// in original dump they named it "mesh" but it's WPS button lol
 		mesh {
 			label = "mesh";
 			gpios = <&tlmm 26 GPIO_ACTIVE_LOW>;
@@ -74,6 +73,7 @@
 			function = LED_FUNCTION_WAN_ONLINE;
 		};
 	};
+	
 };
 
 &xo_clk {
@@ -140,12 +140,10 @@
 	status = "okay";
 	pinctrl-0 = <&mdio1_pins>;
 	pinctrl-names = "default";
-	cig_clk_div = <0xff>;
 	
-	yt9215: switch@0 {
+	yt9215: switch@1d {
 		compatible = "motorcomm,yt9215";
 		reg = <0x1d>;
-		switchid = <0>;
 		reset-gpios = <&tlmm 35 GPIO_ACTIVE_LOW>;
 		
 		sw_phy0: phy@0 {
@@ -332,14 +330,6 @@
 					macaddr_appsblenv_ethaddr: ethaddr {
 						#nvmem-cell-cells = <1>;
 					};
-					
-					serial_number: AeiBoardSerialNumber {
-						#nvmem-cell-cells = <1>;
-					};
-					
-					model_name: modelname {
-						#nvmem-cell-cells = <1>;
-					};
 				};
 			};
 			
@@ -355,7 +345,7 @@
 				read-only;
 			};
 			
-			art: partition@780000 {
+			partition@780000 {
 				label = "0:ART";
 				reg = <0x780000 0x100000>;
 				read-only;

@@ -11,11 +11,11 @@ case "$board" in
 cmcc,pz-l8|\
 elecom,wrc-x3000gs2|\
 iodata,wn-dax3000gr|\
-zyxel,scr50axe|\
-fpt,ax3000cv2)
+zyxel,scr50axe)
 	ubootenv_add_mtd "0:appsblenv" "0x0" "0x40000" "0x20000"
 	;;
-glinet,gl-b3000)
+glinet,gl-b3000|\
+fpt,ax3000cv2)
 	ubootenv_add_mtd "0:APPSBLENV" "0x0" "0x40000" "0x20000"
 	;;
 linksys,mr5500|\
