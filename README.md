@@ -54,7 +54,79 @@ soon...
 
 ## Installation
 
-soon...
+> [!CAUTION]
+> **DISCLAIMER:**
+> Please use this firmware responsibly and at your own risk.
+> I take no responsibility or liability for any damage, data loss, device malfunction, or other issues that may occur as a result of using it.
+> This includes, but is not limited to, bricked devices, system instability, or permanent hardware/software damage.
+> By using this, you acknowledge that you understand the risks involved and agree that you are solely responsible for any consequences.
+
+### Prerequisites
+
+- FPT AX3000CV2 running stock QSDK firmware.
+- Access to the U-Boot command line (via UART).
+  <details>
+  <summary>Check out my setup</summary>
+  ESP32 used as a UART bridge
+
+  ![img](https://github.com/user-attachments/assets/3e4140af-9982-4330-b0f6-5b8d51853c84)
+  </details>
+- A computer with TFTP software (Tftpd or similar), and you must know your PC/Gateway IP address.
+
+### 0. Back up the original firmware (dump the entire NAND)
+
+> [!IMPORTANT]
+> **Save your stock firmware!**
+>
+> Do not skip this step.  
+> You may think it is unnecessary since you do not plan to return to the “dark past”, but I assure you that the stock firmware is still useful for restoring missing settings, drivers, and for further research.
+
+1. Power on the device and repeatedly press the **Escape (ESC)** key to enter the U-Boot command-line interface.
+2. Set the environment variables so U-Boot can connect to the local network and locate your TFTP server:
+   ```sh
+   # Adjust these values to match your setup
+   setenv ipaddr 192.168.2.240
+   setenv gatewayip 192.168.2.1
+   setenv serverip 192.168.2.104
+   # Save to NAND for later use or debugging
+   saveenv
+   ```
+3. For safety, the dump will be split into 4 parts. Each part is 64 MB, since the NAND size is 256 MB.
+   ```sh
+   mw.b 0x44000000 0xff 0x4000000
+   nand read 0x44000000 0x0 0x4000000
+   tftpput 0x44000000 0x4000000 part1.bin
+
+   mw.b 0x44000000 0xff 0x4000000
+   nand read 0x44000000 0x4000000 0x4000000
+   tftpput 0x44000000 0x4000000 part2.bin
+
+   mw.b 0x44000000 0xff 0x4000000
+   nand read 0x44000000 0x8000000 0x4000000
+   tftpput 0x44000000 0x4000000 part3.bin
+
+   mw.b 0x44000000 0xff 0x4000000
+   nand read 0x44000000 0xC000000 0x4000000
+   tftpput 0x44000000 0x4000000 part4.bin
+   ```
+4. If you wanna restore the original firmware:
+   ```sh
+   tftpboot 0x44000000 part1.bin
+   nand erase 0x0 0x4000000
+   nand write 0x44000000 0x0 0x4000000
+
+   tftpboot 0x44000000 part2.bin
+   nand erase 0x4000000 0x4000000
+   nand write 0x44000000 0x4000000 0x4000000
+
+   tftpboot 0x44000000 part3.bin
+   nand erase 0x8000000 0x4000000
+   nand write 0x44000000 0x8000000 0x4000000
+
+   tftpboot 0x44000000 part4.bin
+   nand erase 0xC000000 0x4000000
+   nand write 0x44000000 0xC000000 0x4000000
+   ```
 
 ## License
 
