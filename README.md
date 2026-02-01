@@ -61,6 +61,9 @@ Check out the latest version in the [Releases](https://github.com/michioxd/openw
 > This includes, but is not limited to, bricked devices, system instability, or permanent hardware/software damage.
 > By using this, you acknowledge that you understand the risks involved and agree that you are solely responsible for any consequences.
 
+<details>
+<summary>I'm sure, lemme "rock" my device</summary>
+
 ### Prerequisites
 
 - FPT AX3000CV2 running stock QSDK firmware.
@@ -75,7 +78,6 @@ Check out the latest version in the [Releases](https://github.com/michioxd/openw
 
 ### 0. Back up the original firmware (dump the entire NAND)
 
-> [!IMPORTANT]
 > **Save your stock firmware!**
 >
 > Do not skip this step.  
@@ -127,6 +129,8 @@ Check out the latest version in the [Releases](https://github.com/michioxd/openw
    nand erase 0xC000000 0x4000000
    nand write 0x44000000 0xC000000 0x4000000
    ```
+
+</details>
 
 ## License
 
