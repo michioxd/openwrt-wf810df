@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# how do you access luci without this?
+uci set firewall.@zone[1].input='ACCEPT'
+uci commit firewall
+
+exit 0
