@@ -152,6 +152,37 @@ Check out the latest version in the [Releases](https://github.com/michioxd/openw
    nand write 0x44000000 0xC000000 0x4000000
    ```
 
+### 1. Flash firmware
+
+1. Erase the old firmware, starting from `0xd00000` (~13 MB) with a size of `0xf300000` (~249 MB):
+   ```
+   nand scrub 0xd00000 0xf300000
+   ```
+   If prompted, just press `y` and then **Enter**.
+2. Make sure you have downloaded the file ending with `...-qualcommax-ipq50xx-fpt_ax3000cv2-squashfs-factory.ubi` from the [Releases](https://github.com/michioxd/openwrt-wf810df/releases/latest) page. Rename it to something easier to type. For example: `update.ubi`.
+4. Load the image into memory:
+   ```
+   tftpboot 0x44000000 update.ubi
+   ```
+5. Flash to NAND
+   ```sh
+   nand write 0x44000000 0xd00000 ${filesize}
+   ```
+   Wait a moment for the process to finish.
+
+### 2. Set the startup environment
+
+After flashing the image, you need to create a custom boot command for U-Boot. The `bootipq` command uses fixed partitions, so it does not recognize our firmware.
+
+```sh
+setenv bootargs "ubi.mtd=20 root=/dev/ubiblock0_1 rootfstype=squashfs rootwait"
+setenv bootowrt "setenv mtdparts mtdparts=nand0:0xf300000@0xd00000(rootfs); ubi part rootfs; ubi read 0x44000000 kernel; bootm 0x44000000"
+setenv bootcmd "run bootowrt"
+saveenv
+```
+
+Now you can use `run bootowrt` to boot into the new firmware, or simply run `reset` to reboot :)
+
 </details>
 
 ## License
