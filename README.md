@@ -50,7 +50,7 @@ These resources were dumped from the original firmware:
 
 ## Download
 
-soon...
+Check out the latest version in the [Releases](https://github.com/michioxd/openwrt-wf810df/releases/latest) section.
 
 ## Installation
 
