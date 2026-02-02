@@ -1,3 +1,5 @@
+**English** | [Tiếng Việt](README.vi.md)
+
 ![OpenWrt logo](include/logo.png)
 
 Unofficial [**OpenWrt**](https://openwrt.org/) for **FPT AX3000CV2 (also known as Actiontec/CIG WF-810DF)**.  
