@@ -7,6 +7,12 @@ This build mainly targets the upcoming [**OpenWrt 25.12 mainstream release**](ht
 
 Additional work may include device bring-up, hardware validation, driver fixes, calibration data integration, LED and GPIO mapping, and performance tuning specific to the AX3000CV2 platform.
 
+> [!CAUTION]
+> **FOR EDUCATIONAL AND RESEARCH PURPOSES ONLY**
+>
+> This firmware is provided **“AS IS”** strictly for **educational and research purposes**.  
+> **Use it entirely at your own risk.**
+
 ## Specifications
 
 - **SoC:** Qualcomm IPQ5018
@@ -71,6 +77,8 @@ Check out the latest version in the [Releases](https://github.com/michioxd/openw
 <summary>I'm sure, lemme "rock" my device</summary>
 
 ### Prerequisites
+
+Currently, you must to use U-Boot to flash the firmware. Flash directly from the original firmware is not supported (at least for now).
 
 - FPT AX3000CV2 running stock QSDK firmware.
 - Access to the U-Boot command line (via UART).
