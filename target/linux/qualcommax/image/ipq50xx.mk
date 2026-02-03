@@ -245,6 +245,9 @@ define Device/fpt_ax3000cv2
 	NAND_SIZE := 256m
 	UBINIZE_OPTS := -E 5
 	DEVICE_PACKAGES := ath11k-firmware-ipq5018-qcn6122 \
-		ipq-wifi-fpt_ax3000cv2
+		ipq-wifi-fpt_ax3000cv2 \
+		kmod-gpio-pwm \
+		kmod-leds-pwm \
+		kmod-mdio-gpio
 endef
 TARGET_DEVICES += fpt_ax3000cv2
