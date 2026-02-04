@@ -133,11 +133,11 @@
 				
 				ethernet-port@8 {
 					reg = <8>;
-					phy-mode = "sgmii";
+					phy-mode = "2500base-x";
 					ethernet = <&dp2>;
 					
 					fixed-link {
-						speed = <1000>;
+						speed = <2500>;
 						full-duplex;
 					};
 				};
@@ -167,8 +167,6 @@
 		
 		port@1 {
 			port_id = <2>;
-			forced-speed = <100>;
-			forced-duplex = <1>;
 			mdiobus = <&mdio_bitbang>;
 			port_mac_sel = "QGMAC_PORT";
 		};
