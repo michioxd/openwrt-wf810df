@@ -39,8 +39,8 @@ Trong này có thể bao gồm những thành phần như xác thực phần c�
 
 ### Các vấn đề đã biết
 
-- YT9215S chỉ trả về `0xffffffff` vì lý do nào đó (liệu có phải lỗi MDIO `90000` hay gì không).
-- Đèn LED vẫn chưa hoạt động
+- YT9215S được nhận diện bằng cách sử dụng bit-banged MDIO, nhưng không phát hiện liên kết trên bất kỳ cổng nào.
+- Đèn LED vẫn chưa hoạt động.
 
 ## Tài nguyên bên ngoài
 

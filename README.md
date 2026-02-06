@@ -39,8 +39,8 @@ Additional work may include device bring-up, hardware validation, driver fixes, 
 
 ### Known issues
 
-- YT9215S just return `0xffffffff` for somehow (is that MDIO `90000` issue or what).
-- LED still not working
+- YT9215S recognized using bit-banged MDIO, but no link detected on any port.
+- LED still not working.
 
 ## External resources
 
