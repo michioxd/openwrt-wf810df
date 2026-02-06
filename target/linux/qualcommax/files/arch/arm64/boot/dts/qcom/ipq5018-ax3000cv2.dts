@@ -23,6 +23,10 @@
 		ethernet0 = &dp1;
 		ethernet1 = &dp2;
 		
+		led-boot = &led_red;
+		led-failsafe = &led_red;
+		led-running = &led_white;
+		led-upgrade = &led_red;
 		mdio-gpio1 = &mdio_bitbang;
 	};
 	
@@ -50,6 +54,24 @@
 			linux,code = <KEY_WPS_BUTTON>;
 			linux,input-type = <EV_KEY>;
 			debounce-interval = <60>;
+		};
+	};
+	
+	leds {
+		compatible = "gpio-leds";
+		pinctrl-0 = <&leds_pins>;
+		pinctrl-names = "default";
+		
+		led_red: led-red {
+			color = <LED_COLOR_ID_RED>;
+			gpios = <&tlmm 30 GPIO_ACTIVE_HIGH>;
+			function = LED_FUNCTION_POWER;
+		};
+		
+		led_white: led-white {
+			color = <LED_COLOR_ID_WHITE>;
+			gpios = <&tlmm 46 GPIO_ACTIVE_HIGH>;
+			function = LED_FUNCTION_WAN_ONLINE;
 		};
 	};
 	
@@ -394,6 +416,13 @@
 			drive-strength = <8>;
 			bias-pull-up;
 		};
+	};
+	
+	leds_pins: leds-pins {
+		pins = "gpio46", "gpio30";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-pull-down;
 	};
 	
 	button_pins: button-pins {
