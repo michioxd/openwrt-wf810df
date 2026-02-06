@@ -1,0 +1,68 @@
+mdio_bitbang: mdio-gpio {
+	compatible = "virtual,mdio-gpio";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	
+	gpios = <&tlmm 36 GPIO_ACTIVE_HIGH>,
+	<&tlmm 37 GPIO_ACTIVE_HIGH>;
+	
+	yt9215: switch@1d {
+		compatible = "motorcomm,yt9215";
+		reg = <29>;
+		reset-gpios = <&tlmm 35 GPIO_ACTIVE_LOW>;
+		
+		mdio {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
+			sw_phy0: phy@0 {
+				reg = <0>;
+			};
+			
+			sw_phy1: phy@1 {
+				reg = <1>;
+			};
+			
+			sw_phy2: phy@2 {
+				reg = <2>;
+			};
+		};
+		
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
+			ethernet-port@0 {
+				reg = <0>;
+				label = "lan1";
+				phy-mode = "internal";
+				phy-handle = <&sw_phy0>;
+			};
+			
+			ethernet-port@1 {
+				reg = <1>;
+				label = "lan2";
+				phy-mode = "internal";
+				phy-handle = <&sw_phy1>;
+			};
+			
+			ethernet-port@2 {
+				reg = <2>;
+				label = "lan3";
+				phy-mode = "internal";
+				phy-handle = <&sw_phy2>;
+			};
+			
+			ethernet-port@8 {
+				reg = <8>;
+				phy-mode = "2500base-x";
+				ethernet = <&dp2>;
+				
+				fixed-link {
+					speed = <2500>;
+					full-duplex;
+				};
+			};
+		};
+	};
+};

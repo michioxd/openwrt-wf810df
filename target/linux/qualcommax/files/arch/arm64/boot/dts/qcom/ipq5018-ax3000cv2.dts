@@ -23,10 +23,6 @@
 		ethernet0 = &dp1;
 		ethernet1 = &dp2;
 		
-		led-boot = &led_red;
-		led-failsafe = &led_red;
-		led-running = &led_white;
-		led-upgrade = &led_red;
 		mdio-gpio1 = &mdio_bitbang;
 	};
 	
@@ -57,24 +53,6 @@
 		};
 	};
 	
-	leds {
-		compatible = "gpio-leds";
-		pinctrl-0 = <&leds_pins>;
-		pinctrl-names = "default";
-		
-		led_red: led-red {
-			color = <LED_COLOR_ID_RED>;
-			gpios = <&tlmm 30 GPIO_ACTIVE_HIGH>;
-			function = LED_FUNCTION_POWER;
-		};
-		
-		led_white: led-white {
-			color = <LED_COLOR_ID_WHITE>;
-			gpios = <&tlmm 46 GPIO_ACTIVE_HIGH>;
-			function = LED_FUNCTION_WAN_ONLINE;
-		};
-	};
-	
 	// yt9215s cannot recognize from mdio1 so i used bitbang method instead
 	mdio_bitbang: mdio-gpio {
 		compatible = "virtual,mdio-gpio";
@@ -85,9 +63,13 @@
 		<&tlmm 37 GPIO_ACTIVE_HIGH>;
 		
 		yt9215: switch@1d {
+			pinctrl-names = "default";
+			pinctrl-0 = <&switch_reset_pin>;
 			compatible = "motorcomm,yt9215";
 			reg = <29>;
 			reset-gpios = <&tlmm 35 GPIO_ACTIVE_LOW>;
+			reset-delay-us = <20000>;
+			reset-post-delay-us = <200000>;
 			
 			mdio {
 				#address-cells = <1>;
@@ -391,6 +373,13 @@
 };
 
 &tlmm {
+	switch_reset_pin: switch-reset-pin {
+		pins = "gpio35";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-pull-up;
+	};
+	
 	mdio1_pins: mdio-state {
 		mdc-pins {
 			pins = "gpio36";
@@ -405,13 +394,6 @@
 			drive-strength = <8>;
 			bias-pull-up;
 		};
-	};
-	
-	leds_pins: leds-pins {
-		pins = "gpio46", "gpio30";
-		function = "gpio";
-		drive-strength = <8>;
-		bias-pull-down;
 	};
 	
 	button_pins: button-pins {
@@ -451,17 +433,17 @@
 	};
 	
 	pwm_pins: pwm_pinmux {
-		mux_1 {
-			pins = "gpio0";
-			function = "pwm10";
-			drive-strength = <8>;
-		};
+		// mux_1 {
+		// 	pins = "gpio0";
+		// 	function = "pwm10";
+		// 	drive-strength = <8>;
+		// };
 		
-		mux_2 {
-			pins = "gpio1";
-			function = "pwm20";
-			drive-strength = <8>;
-		};
+		// mux_2 {
+		// 	pins = "gpio1";
+		// 	function = "pwm20";
+		// 	drive-strength = <8>;
+		// };
 		
 		mux_3 {
 			pins = "gpio45";
