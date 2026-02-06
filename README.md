@@ -191,6 +191,7 @@ Currently, you must to use U-Boot to flash the firmware. Flash directly from the
 After flashing the image, you need to create a custom boot command for U-Boot. The `bootipq` command uses fixed partitions, so it does not recognize our firmware.
 
 ```sh
+setenv mtdids nand0=nand0
 setenv bootargs "ubi.mtd=20 root=/dev/ubiblock0_1 rootfstype=squashfs rootwait"
 setenv bootowrt "setenv mtdparts mtdparts=nand0:0xf300000@0xd00000(rootfs); ubi part rootfs; ubi read 0x44000000 kernel; bootm 0x44000000"
 setenv bootcmd "run bootowrt"

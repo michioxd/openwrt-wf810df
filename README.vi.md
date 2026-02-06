@@ -191,6 +191,7 @@ Hiện tại, bạn bắt buộc phải sử dụng U-Boot để flash firmware.
 Sau khi flash image, bạn cần tạo lệnh boot tùy chỉnh cho U-Boot. Lệnh `bootipq` sử dụng các phân vùng cố định, nên nó không nhận diện được firmware của ta.
 
 ```sh
+setenv mtdids nand0=nand0
 setenv bootargs "ubi.mtd=20 root=/dev/ubiblock0_1 rootfstype=squashfs rootwait"
 setenv bootowrt "setenv mtdparts mtdparts=nand0:0xf300000@0xd00000(rootfs); ubi part rootfs; ubi read 0x44000000 kernel; bootm 0x44000000"
 setenv bootcmd "run bootowrt"
