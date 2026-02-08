@@ -64,13 +64,13 @@
 		
 		led_red: led-red {
 			color = <LED_COLOR_ID_RED>;
-			gpios = <&tlmm 30 GPIO_ACTIVE_HIGH>;
+			gpios = <&tlmm 0 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_POWER;
 		};
 		
 		led_white: led-white {
 			color = <LED_COLOR_ID_WHITE>;
-			gpios = <&tlmm 46 GPIO_ACTIVE_HIGH>;
+			gpios = <&tlmm 1 GPIO_ACTIVE_HIGH>;
 			function = LED_FUNCTION_WAN_ONLINE;
 		};
 	};
@@ -419,7 +419,7 @@
 	};
 	
 	leds_pins: leds-pins {
-		pins = "gpio46", "gpio30";
+		pins = "gpio0", "gpio1";
 		function = "gpio";
 		drive-strength = <8>;
 		bias-pull-down;

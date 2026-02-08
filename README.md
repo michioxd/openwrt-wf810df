@@ -34,13 +34,13 @@ Additional work may include device bring-up, hardware validation, driver fixes, 
 - [x] 2.4GHz Wi-Fi (SoC)
 - [x] 5GHz Wi-Fi (QCN6102)
 - [x] NAND Flash
-- [ ] LEDs (Red/White) *(unknown state)*
+- [x] LEDs (Red/White)
 - [x] Buttons (Reset/WPS (aka Mesh button))
 
 ### Known issues
 
 - YT9215S recognized using bit-banged MDIO, but no link detected on any port.
-- LED still not working.
+- NSS not working, so no hardware offloading for routing and Wi-Fi.
 
 ## External resources
 
