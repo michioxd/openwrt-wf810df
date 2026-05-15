@@ -20,7 +20,7 @@ function radio_exists(path, macaddr, phy, radio) {
 			continue;
 		if (radio != null && int(s.radio) != radio)
 			continue;
-		if (s.macaddr & lc(s.macaddr) == lc(macaddr))
+		if (s.macaddr && lc(s.macaddr) == lc(macaddr))
 			return true;
 		if (s.phy == phy)
 			return true;
@@ -83,7 +83,7 @@ for (let phy_name, phy in board.wlan) {
 			country = '00';
 			encryption = 'owe';
 		} else {
-			encryption = 'open';
+			encryption = 'none';
 		}
 		if (board.wlan.defaults) {
 			defaults = board.wlan.defaults.ssids?.[band_name]?.ssid ? board.wlan.defaults.ssids?.[band_name] : board.wlan.defaults.ssids?.all;
@@ -104,7 +104,6 @@ set ${s}.channel='${channel}'
 set ${s}.htmode='${htmode}'
 set ${s}.country='${country || ''}'
 set ${s}.num_global_macaddr='${num_global_macaddr || ''}'
-set ${s}.disabled='${defaults ? 0 : 1}'
 
 set ${si}=wifi-iface
 set ${si}.device='${name}'
@@ -113,6 +112,7 @@ set ${si}.mode='ap'
 set ${si}.ssid='${defaults?.ssid || "OpenWrt"}'
 set ${si}.encryption='${defaults?.encryption || encryption}'
 set ${si}.key='${defaults?.key || ""}'
+set ${si}.disabled='${defaults ? 0 : 1}'
 
 `);
 		config[name] = {};

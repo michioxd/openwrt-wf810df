@@ -169,6 +169,10 @@
 			"description": "Management frame protection for Beacon frames",
 			"type": "boolean"
 		},
+		"bridge_isolate": {
+			"description": "Enable bridge port isolation for the wireless interface",
+			"type": "boolean"
+		},
 		"bss_load_update_period": {
 			"description": "BSS Load update period (in BUs)",
 			"type": "number",
@@ -433,8 +437,7 @@
 		"ieee80211w": {
 			"description": "Enables MFP (802.11w) support (0 = disabled, 1 = optional, 2 = required). Requires the 'full' version of wpad/hostapd and support from the Wi-Fi driver",
 			"type": "number",
-			"enum": [ 0, 1, 2 ],
-			"default": 0
+			"enum": [ 0, 1, 2 ]
 		},
 		"ieee80211w_max_timeout": {
 			"type": "alias",
@@ -760,6 +763,13 @@
 		"network_auth_type": {
 			"description": "Network Authentication Type",
 			"type": "string"
+		},
+		"network_vlan": {
+			"description": "Make a wireless interface a tagged member of extra VLANs",
+			"type": "array",
+			"items": {
+				"type": "string"
+			}
 		},
 		"no_probe_resp_if_max_sta": {
 			"description": "Do not answer probe requests if iface_max_num_sta was reached",

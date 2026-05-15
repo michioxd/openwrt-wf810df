@@ -343,8 +343,7 @@ define Device/cilab_meshpoint-one
 	DEVICE_MODEL := MeshPoint.One
 	DEVICE_PACKAGES += kmod-i2c-gpio kmod-iio-bmp280-i2c kmod-hwmon-ina2xx kmod-rtc-pcf2127
 endef
-# Missing DSA Setup
-#TARGET_DEVICES += cilab_meshpoint-one
+TARGET_DEVICES += cilab_meshpoint-one
 
 define Device/compex_wpj419
 	$(call Device/FitImage)
@@ -393,7 +392,6 @@ define Device/devolo_magic-2-wifi-next
 	IMAGE_SIZE := 26624k
 	IMAGES := sysupgrade.bin
 	IMAGE/sysupgrade.bin := append-kernel | append-rootfs | pad-rootfs | append-metadata
-	DEFAULT := n
 endef
 TARGET_DEVICES += devolo_magic-2-wifi-next
 

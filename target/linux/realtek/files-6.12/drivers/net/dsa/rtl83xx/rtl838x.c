@@ -1489,10 +1489,8 @@ static void rtl838x_pie_init(struct rtl838x_switch_priv *priv)
 	/* Delete all present rules */
 	rtl838x_pie_rule_del(priv, 0, priv->n_pie_blocks * PIE_BLOCK_SIZE - 1);
 
-	/* Routing bypasses source port filter: disable write-protection, first */
-	sw_w32_mask(0, 3, RTL838X_INT_RW_CTRL);
+	/* Routing bypasses source port filter */
 	sw_w32_mask(0, 1, RTL838X_DMY_REG27);
-	sw_w32_mask(3, 0, RTL838X_INT_RW_CTRL);
 
 	/* Enable predefined templates 0, 1 and 2 for even blocks */
 	template_selectors = 0 | (1 << 3) | (2 << 6);
@@ -1744,6 +1742,7 @@ const struct rtl838x_reg rtl838x_reg = {
 	.l3_setup = rtl838x_l3_setup,
 	.set_distribution_algorithm = rtl838x_set_distribution_algorithm,
 	.set_receive_management_action = rtl838x_set_receive_management_action,
+	.qos_init = rtldsa_838x_qos_init,
 };
 
 irqreturn_t rtl838x_switch_irq(int irq, void *dev_id)

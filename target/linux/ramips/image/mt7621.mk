@@ -1250,6 +1250,22 @@ define Device/edup_ep-rt2960s
 endef
 TARGET_DEVICES += edup_ep-rt2960s
 
+define Device/edup_ep-rt2983
+  $(Device/dsa-migration)
+  $(Device/nand)
+  IMAGE_SIZE := 121344k
+  DEVICE_VENDOR := EDUP
+  DEVICE_MODEL := EP-RT2983
+  KERNEL_LOADADDR := 0x82000000
+  KERNEL := kernel-bin | relocate-kernel $(loadaddr-y) | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
+  IMAGES += factory.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$(KERNEL_SIZE) | \
+	append-ubi | check-size
+  DEVICE_PACKAGES += kmod-mt7915-firmware
+endef
+TARGET_DEVICES += edup_ep-rt2983
+
 define Device/elecom_wrc-gs
   $(Device/dsa-migration)
   $(Device/uimage-lzma-loader)
@@ -1413,7 +1429,7 @@ define Device/elecom_wrc-x1800gs
   $(Device/nand)
   DEVICE_VENDOR := ELECOM
   DEVICE_MODEL := WRC-X1800GS
-  KERNEL_LOADADDR := 0x82000000
+  KERNEL_LOADADDR := 0x88000000
   KERNEL := kernel-bin | relocate-kernel $(loadaddr-y) | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb | \
 	znet-header 4.04(XVF.1)b90 COMC 0x68 | elecom-product-header WRC-X1800GS
@@ -2253,7 +2269,7 @@ TARGET_DEVICES += mikrotik_routerboard-m11g
 define Device/mikrotik_routerboard-m33g
   $(Device/MikroTik)
   DEVICE_MODEL := RouterBOARD M33G
-  DEVICE_PACKAGES := -wpad-basic-mbedtls
+  DEVICE_PACKAGES := kmod-usb3 -wpad-basic-mbedtls
   SUPPORTED_DEVICES += mikrotik,rbm33g
 endef
 TARGET_DEVICES += mikrotik_routerboard-m33g
@@ -2986,7 +3002,6 @@ define Device/tplink_eap615-wall-v1
   KERNEL_LOADADDR := 0x82000000
   KERNEL := kernel-bin | relocate-kernel $(loadaddr-y) | lzma | \
 	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb | pad-to 64k
-  KERNEL_INITRAMFS := kernel-bin | lzma -d22 | fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb
   IMAGE_SIZE := 13248k
 endef
 TARGET_DEVICES += tplink_eap615-wall-v1

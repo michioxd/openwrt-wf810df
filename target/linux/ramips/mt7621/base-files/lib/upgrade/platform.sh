@@ -96,6 +96,7 @@ platform_do_upgrade() {
 	dlink,dir-853-a3|\
 	dlink,dir-x1860-b1|\
 	edup,ep-rt2960s|\
+	edup,ep-rt2983|\
 	elecom,wmc-x1800gst|\
 	elecom,wsc-x1800gs|\
 	etisalat,s3|\
@@ -111,6 +112,7 @@ platform_do_upgrade() {
 	iptime,ax2004m|\
 	iptime,t5004|\
 	jcg,q20|\
+	keenetic,kn-1910|\
 	keenetic,kn-3510|\
 	linksys,e5600|\
 	linksys,e7350|\

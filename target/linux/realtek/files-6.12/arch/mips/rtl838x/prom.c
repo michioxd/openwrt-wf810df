@@ -76,6 +76,25 @@ static int rtlsmp_register(void)
 
 #endif
 
+static void __init apply_early_quirks(void)
+{
+	if (soc_info.family == RTL8380_FAMILY_ID) {
+		/*
+		 * Open up write protected registers. SDK opens/closes this whenever needed. For
+		 * simplicity always work with an "open" register set.
+		 */
+		sw_w32(0x3, RTL838X_INT_RW_CTRL);
+		/*
+		 * Disable 4 byte address mode of flash controller. If this bit is not cleared
+		 * the watchdog cannot reset the SoC. The SDK changes this short before restart.
+		 * Until this quirk was implemented all RTL838x devices ran with this disabled
+		 * because of a coding error. As no issues were detected keep the behaviour
+		 * until more details are known.
+		 */
+		sw_w32_mask(BIT(30), 0, RTL838X_PLL_CML_CTRL);
+	}
+}
+
 void __init device_tree_init(void)
 {
 	if (!fdt_check_header(&__appended_dtb)) {
@@ -106,7 +125,6 @@ static void __init rtl838x_read_details(u32 model)
 {
 	u32 chip_info, ext_version, tmp;
 
-	sw_w32(0x3, RTL838X_INT_RW_CTRL);
 	sw_w32(0xa << 28, RTL838X_CHIP_INFO);
 
 	chip_info = sw_r32(RTL838X_CHIP_INFO);
@@ -167,6 +185,7 @@ static u32 __init read_model(void)
 	if ((id >= 0x8380 && id <= 0x8382) || id == 0x8330 || id == 0x8332) {
 		soc_info.id = id;
 		soc_info.family = RTL8380_FAMILY_ID;
+		apply_early_quirks();
 		rtl838x_read_details(model);
 		return model;
 	}
@@ -176,6 +195,7 @@ static u32 __init read_model(void)
 	if ((id >= 0x8391 && id <= 0x8396) || (id >= 0x8351 && id <= 0x8353)) {
 		soc_info.id = id;
 		soc_info.family = RTL8390_FAMILY_ID;
+		apply_early_quirks();
 		rtl839x_read_details(model);
 		return model;
 	}
@@ -185,11 +205,13 @@ static u32 __init read_model(void)
 	if (id >= 0x9301 && id <= 0x9303) {
 		soc_info.id = id;
 		soc_info.family = RTL9300_FAMILY_ID;
+		apply_early_quirks();
 		rtl93xx_read_details(model);
 		return model;
 	} else if (id >= 0x9311 && id <= 0x9313) {
 		soc_info.id = id;
 		soc_info.family = RTL9310_FAMILY_ID;
+		apply_early_quirks();
 		rtl93xx_read_details(model);
 		return model;
 	}
