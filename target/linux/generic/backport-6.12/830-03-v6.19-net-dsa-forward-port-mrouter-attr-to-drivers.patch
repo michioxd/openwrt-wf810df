@@ -1,0 +1,82 @@
+From 0f9f9a4fd9c6bb6ca216dd0c6e2c0c0125f9f1b3 Mon Sep 17 00:00:00 2001
+From: zcop <hongson.hn@gmail.com>
+Date: Wed, 15 Apr 2026 03:25:00 +0700
+Subject: [PATCH] net: dsa: forward PORT_MROUTER switchdev attr to drivers
+
+Bridge multicast code emits SWITCHDEV_ATTR_ID_PORT_MROUTER notifications
+when router-port state changes, but DSA user attr handling currently drops
+that attribute. Add a small DSA bridge hook so switch drivers can consume
+the router-port signal and program hardware policy accordingly.
+
+Signed-off-by: zcop <hongson.hn@gmail.com>
+---
+ include/net/dsa.h | 1 +
+ net/dsa/port.c    | 9 +++++++++
+ net/dsa/port.h    | 1 +
+ net/dsa/user.c    | 7 +++++++
+ 4 files changed, 18 insertions(+)
+
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 24bd5f719b95..275ba8b947b0 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -1076,6 +1076,7 @@ struct dsa_switch_ops {
+ 	int	(*port_bridge_flags)(struct dsa_switch *ds, int port,
+ 				     struct switchdev_brport_flags flags,
+ 				     struct netlink_ext_ack *extack);
++	int	(*port_mrouter)(struct dsa_switch *ds, int port, bool mrouter);
+ 	void	(*port_set_host_flood)(struct dsa_switch *ds, int port,
+ 				       bool uc, bool mc);
+ 
+diff --git a/net/dsa/port.c b/net/dsa/port.c
+index c83dc45f5318..3f39cb4f5ba0 100644
+--- a/net/dsa/port.c
++++ b/net/dsa/port.c
+@@ -948,6 +948,15 @@ int dsa_port_bridge_flags(struct dsa_port *dp,
+ 	return 0;
+ }
+ 
++int dsa_port_set_mrouter(struct dsa_port *dp, bool mrouter)
++{
++	struct dsa_switch *ds = dp->ds;
++
++	if (!ds->ops->port_mrouter)
++		return -EOPNOTSUPP;
++
++	return ds->ops->port_mrouter(ds, dp->index, mrouter);
++}
+ void dsa_port_set_host_flood(struct dsa_port *dp, bool uc, bool mc)
+ {
+ 	struct dsa_switch *ds = dp->ds;
+diff --git a/net/dsa/port.h b/net/dsa/port.h
+index c59e2da56cc7..dc8f5c87817a 100644
+--- a/net/dsa/port.h
++++ b/net/dsa/port.h
+@@ -108,6 +108,7 @@ int dsa_port_hsr_join(struct dsa_port *dp, struct net_device *hsr,
+ void dsa_port_hsr_leave(struct dsa_port *dp, struct net_device *hsr);
+ int dsa_port_tag_8021q_vlan_add(struct dsa_port *dp, u16 vid, bool broadcast);
+ void dsa_port_tag_8021q_vlan_del(struct dsa_port *dp, u16 vid, bool broadcast);
++int dsa_port_set_mrouter(struct dsa_port *dp, bool mrouter);
+ void dsa_port_set_host_flood(struct dsa_port *dp, bool uc, bool mc);
+ int dsa_port_change_conduit(struct dsa_port *dp, struct net_device *conduit,
+ 			    struct netlink_ext_ack *extack);
+diff --git a/net/dsa/user.c b/net/dsa/user.c
+index fbcf3184f3af..7656f19f6f7c 100644
+--- a/net/dsa/user.c
++++ b/net/dsa/user.c
+@@ -648,6 +648,13 @@ static int dsa_user_port_attr_set(struct net_device *dev, const void *ctx,
+ 
+ 		ret = dsa_port_bridge_flags(dp, attr->u.brport_flags, extack);
+ 		break;
++	case SWITCHDEV_ATTR_ID_PORT_MROUTER:
++		if (!dsa_port_offloads_bridge_port(dp, attr->orig_dev))
++			return -EOPNOTSUPP;
++
++		ret = dsa_port_set_mrouter(dp, attr->u.mrouter);
++		break;
++
+ 	case SWITCHDEV_ATTR_ID_VLAN_MSTI:
+ 		if (!dsa_port_offloads_bridge_dev(dp, attr->orig_dev))
+ 			return -EOPNOTSUPP;
+-- 
+2.49.0

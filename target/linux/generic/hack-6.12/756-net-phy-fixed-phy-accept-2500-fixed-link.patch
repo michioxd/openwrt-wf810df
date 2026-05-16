@@ -1,0 +1,27 @@
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@ -273,6 +273,11 @@ static struct phy_device *__fixed_phy_register(unsigned int irq,
+ 	phy->is_pseudo_fixed_link = true;
+ 
+ 	switch (status->speed) {
++	case SPEED_2500:
++		linkmode_set_bit(ETHTOOL_LINK_MODE_2500baseT_Full_BIT,
++				 phy->supported);
++		linkmode_set_bit(ETHTOOL_LINK_MODE_2500baseX_Full_BIT,
++				 phy->supported);
+ 	case SPEED_1000:
+ 		linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Half_BIT,
+ 				 phy->supported);
+--- a/drivers/net/phy/swphy.c
++++ b/drivers/net/phy/swphy.c
+@@ -71,6 +71,11 @@ static int swphy_decode_speed(int speed)
+ {
+ 	switch (speed) {
++	/*
++	 * Clause 22 software PHY has no dedicated 2.5G status bits.
++	 * Accept 2500 fixed-link and represent it using 1000M C22 encoding.
++	 */
++	case SPEED_2500:
+ 	case 1000:
+ 		return SWMII_SPEED_1000;
+ 	case 100:
