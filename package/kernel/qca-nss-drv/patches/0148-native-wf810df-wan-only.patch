@@ -27,12 +27,12 @@
 +	if (!enabled)
 +		return -ENODEV;
 +
-+	/* Only the internal WAN may leave the host datapath on this board. */
++	/* Hand off only this board's WAN and 802.1Q DSA conduit. */
 +	if (!of_machine_is_compatible("fpt,ax3000cv2") ||
 +	    of_property_read_u32(nss_dev->dev.of_node,
 +				 "qcom,physical-interface-mask", &mask) ||
-+	    mask != BIT(0)) {
-+		dev_err(&nss_dev->dev, "refusing NSS without WF810DF WAN-only ownership\n");
++	    mask != (BIT(0) | BIT(1))) {
++		dev_err(&nss_dev->dev, "refusing NSS without WF810DF WAN/LAN ownership\n");
 +		return -EINVAL;
 +	}
 +
@@ -90,14 +90,22 @@
  	bool is_open;
  	int core;
  
-@@ -261,6 +269,13 @@
+@@ -261,6 +269,21 @@
  		return false;
  	}
  
 +	if (!netdev->dev.parent ||
 +	    of_property_read_u32(netdev->dev.parent->of_node, "qcom,id", &macid) ||
-+	    macid != 1 || netdev_uses_dsa(netdev)) {
-+		nss_warning("%px: refusing non-WAN native data plane %d\n", nss_ctx, if_num);
++	    macid != if_num + 1 ||
++	    (macid != 1 && macid != 2) ||
++	    (macid == 1 && netdev_uses_dsa(netdev))) {
++		nss_warning("%px: refusing unexpected native data plane %d\n", nss_ctx, if_num);
++		return false;
++	}
++	if (macid == 2 &&
++	    (!netdev_uses_dsa(netdev) || !netdev->dsa_ptr->tag_ops ||
++	     netdev->dsa_ptr->tag_ops->proto != DSA_TAG_PROTO_YT921X_8021Q)) {
++		nss_warning("%px: refusing LAN without the YT921x 802.1Q tagger\n", nss_ctx);
 +		return false;
 +	}
 +
@@ -113,7 +121,7 @@
  
 +	if (of_property_read_u32(nss_ctx->dev->of_node,
 +				 "qcom,physical-interface-mask", &mask) ||
-+	    mask != BIT(0))
++	    mask != (BIT(0) | BIT(1)))
 +		return;
 +
 +	rtnl_lock();

@@ -1,0 +1,38 @@
+From: ppptran <ppptran@localhost>
+Subject: [PATCH] net: dsa: yt921x: keep AN_LINK_EN armed on carrier loss
+
+The port MAC latches the link of an integral PHY on the rising edge of
+AN_LINK_EN. Clearing the admin mask on every link-down disarms it, so a
+PHY renegotiation (cable replug, re-autonegotiation) drops the link while
+the port is disarmed and the subsequent link-up edge is never latched.
+PORT_STATUS keeps reporting no link and the port stays dead until the
+netdev is administratively cycled, because only the down/up path arms the
+port before the PHY link returns.
+
+Keep AN_LINK_EN set for internal ports when the link drops and gate the
+data path through the RX/TX enables only. External ports still go through
+the full serdes down sequence.
+
+--- a/drivers/net/dsa/yt921x_port.c
++++ b/drivers/net/dsa/yt921x_port.c
+@@ -959,7 +959,19 @@
+ 	cancel_delayed_work_sync(&priv->ports[port].mib_read);
+ 
+ 	mutex_lock(&priv->reg_lock);
+-	res = yt921x_port_down(priv, port);
++	if (yt921x_is_external_port(priv, port)) {
++		res = yt921x_port_down(priv, port);
++	} else {
++		/* The port latches its integral PHY link on the rising edge of
++		 * AN_LINK_EN. Keep it armed across carrier loss, otherwise the
++		 * latch misses the link returning after a PHY renegotiation
++		 * and the port stays dead until an administrative down/up.
++		 * The data path is still gated by the RX/TX enables.
++		 */
++		res = yt921x_reg_clear_bits(priv, YT921X_PORTn_CTRL(port),
++					    YT921X_PORT_RX_MAC_EN |
++					    YT921X_PORT_TX_MAC_EN);
++	}
+ 	mutex_unlock(&priv->reg_lock);
+ 
+ 	if (res)

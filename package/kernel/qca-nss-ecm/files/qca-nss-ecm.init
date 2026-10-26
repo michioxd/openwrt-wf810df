@@ -14,12 +14,12 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# No START: only wf810df-nss starts ECM after the native WAN handoff.
+# No START: only wf810df-nss starts ECM after the native WAN/LAN handoff.
 start() {
 	local active
 	read -r active < /sys/module/qca_nss_drv/parameters/physical_interface_mask_active || return 1
-	[ "$active" = 1 ] || {
-		logger -t qca-nss-ecm 'native WAN data plane is not ready; refusing ECM'
+	[ "$active" = 3 ] || {
+		logger -t qca-nss-ecm 'native WAN/LAN data planes are not ready; refusing ECM'
 		return 1
 	}
 	[ -d /sys/module/ecm ] && return 0

@@ -87,12 +87,12 @@ wf810df_nss_start() {
 	attempts=0
 	while [ "$attempts" -lt 30 ]; do
 		active="$(cat /sys/module/qca_nss_drv/parameters/physical_interface_mask_active 2>/dev/null)"
-		[ "$active" = 1 ] && break
+		[ "$active" = 3 ] && break
 		sleep 1
 		attempts=$((attempts + 1))
 	done
-	[ "$active" = 1 ] || {
-		wf810df_nss_log 'WAN handoff not ready; no ECM, host Wi-Fi; reboot with NSS disabled to restore WAN if claimed'
+	[ "$active" = 3 ] || {
+		wf810df_nss_log 'WAN/LAN handoff not ready; no ECM, host Wi-Fi; reboot with NSS disabled to restore claimed interfaces'
 		wf810df_nss_host_wifi
 		return 1
 	}
@@ -107,6 +107,7 @@ wf810df_nss_start() {
 		modprobe ath11k || return 1
 	fi
 	modprobe ath11k_ahb || return 1
+	modprobe qca-dsa-nss || return 1
 	/etc/init.d/qca-nss-ecm start || return 1
-	wf810df_nss_log "native WAN $wan assigned to NSS; YT9215 LAN remains host-owned"
+	wf810df_nss_log "native WAN $wan and YT9215 802.1Q LAN conduit assigned to NSS"
 }

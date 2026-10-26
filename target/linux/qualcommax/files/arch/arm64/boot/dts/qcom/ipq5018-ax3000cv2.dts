@@ -155,6 +155,7 @@
 					 */
 					phy-mode = "2500base-x";
 					ethernet = <&dp2>;
+					dsa-tag-protocol = "yt921x-8021q";
 					
 					fixed-link {
 						speed = <2500>;
@@ -534,8 +535,9 @@
 
 &nss0 {
 	status = "okay";
-	/* Native NSS physical interface 0 is dp1; dp2 stays host-owned. */
-	qcom,physical-interface-mask = <0x1>;
+	qcom,vlan-enabled;
+	/* Native NSS physical interfaces: dp1 WAN and dp2 YT9215 conduit. */
+	qcom,physical-interface-mask = <0x3>;
 };
 
 &q6v5_wcss {

@@ -9,8 +9,8 @@ include $(INCLUDE_DIR)/package.mk
 define Package/wf810df-nss
   SECTION:=net
   CATEGORY:=Network
-  TITLE:=WF810DF native WAN and AP NSS startup
-  DEPENDS:=@TARGET_qualcommax_ipq50xx +kmod-qca-nss-drv +kmod-qca-nss-ecm +kmod-ath11k-ahb \
+  TITLE:=WF810DF native WAN, LAN and AP NSS startup
+  DEPENDS:=@TARGET_qualcommax_ipq50xx +kmod-qca-nss-drv +kmod-qca-nss-ecm +kmod-qca-dsa-nss +kmod-ath11k-ahb \
 	+@NSS_DRV_WIFIOFFLOAD_ENABLE +@NSS_DRV_WIFI_EXT_VDEV_ENABLE +@ATH11K_NSS_SUPPORT
 endef
 
