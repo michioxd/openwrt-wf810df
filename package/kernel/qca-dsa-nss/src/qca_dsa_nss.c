@@ -27,10 +27,10 @@
  * bridge's own VIDs (the CPU port is a tagged member of every bridge VLAN),
  * not with a tag_8021q one, and a port carries as many VIDs as it is a
  * member of. Such a bridge gets one node per (bridge VID, phys_if), bound to
- * the first member port for the node's MAC and MTU. A netdev cannot name
- * the node then - one port, several VIDs - so ECM asks for it by VID
- * through qca_dsa_nss_if_num() instead of by netdev. Bridge VLAN changes
- * do not raise netdev events; the switchdev notifier covers them.
+ * the live representative selected by the tagger for its MAC and MTU. A
+ * netdev cannot name the node then - one port, several VIDs - so ECM asks
+ * for it by VID through qca_dsa_nss_if_num() instead of by netdev. Bridge
+ * VLAN changes do not raise netdev events; the switchdev notifier covers them.
  *
  * The firmware hands out dynamic interface numbers next-fit and does not
  * reuse a freed slot until the cursor wraps, which takes a moment: after
@@ -226,12 +226,32 @@ static bool dsa_nss_want_add(struct dsa_nss_want *want, int *n, int max,
 	return true;
 }
 
+/* Match tag_yt921x_8021q's VLAN-aware, imprecise RX port selection. */
+static struct net_device *dsa_nss_bridge_vlan_port(struct net_device *conduit,
+						  u16 vid)
+{
+	struct dsa_port *cpu_dp = conduit->dsa_ptr;
+	struct bridge_vlan_info vinfo;
+	struct dsa_port *dp;
+
+	dsa_tree_for_each_user_port(dp, cpu_dp->dst) {
+		if (dp->cpu_dp != cpu_dp || !dp->user || !dp->bridge ||
+		    !dsa_port_is_vlan_filtering(dp))
+			continue;
+		if (dp->stp_state != BR_STATE_LEARNING &&
+		    dp->stp_state != BR_STATE_FORWARDING)
+			continue;
+		if (!br_vlan_get_info(dp->user, vid, &vinfo))
+			return dp->user;
+	}
+	return NULL;
+}
+
 /*
  * One entry per standalone tag_8021q port, one per VLAN-unaware bridge on
- * such ports, one per VLAN of a VLAN-aware bridge on such ports, and one
- * per 802.1Q upper of such a port (its own VID - the switch carries that
- * VLAN through, the tagger leaves it alone, and it is on the conduit as a
- * single tag, exactly like eth0.<vid> on a trunk). Returns the count.
+ * such ports and one per VLAN of a VLAN-aware bridge on such ports.
+ * Direct port VLAN uppers must not claim a bridge's conduit VID.
+ * Returns the count.
  */
 static int dsa_nss_collect(struct dsa_nss_want *want, int max)
 {
@@ -254,23 +274,24 @@ static int dsa_nss_collect(struct dsa_nss_want *want, int max)
 		if (phys_if < 0 || phys_if >= NSS_MAX_PHYSICAL_INTERFACES)
 			continue;	/* conduit not armed as a firmware port */
 
-		if (upper) {
-			vid = vlan_dev_vlan_id(dev);
-			bound = dev;
-		} else if (dp->bridge &&
+		/* Direct port VLAN uppers are unsupported by the YT tagger. */
+		if (upper)
+			continue;
+		if (dp->bridge &&
 			   br_vlan_enabled(dsa_port_bridge_dev_get(dp))) {
-			/* A VLAN-aware bridge's frames carry the bridge's own
-			 * VIDs on the conduit: one node per VID the port is a
-			 * member of, the first port found in a VLAN lending
-			 * the node its MAC and MTU. The tag_8021q range is the
-			 * tagger's and never a bridge VLAN.
+			/* Use the same live representative as imprecise RX, not
+			 * netdev enumeration order. Without one, keep the VLAN
+			 * on the host until a port can receive it.
 			 */
 			struct bridge_vlan_info vinfo;
 
 			for (vid = 1; vid < VLAN_N_VID && !vid_is_dsa_8021q(vid); vid++) {
 				if (br_vlan_get_info(dev, vid, &vinfo))
 					continue;
-				if (!dsa_nss_want_add(want, &n, max, vid, phys_if, dev))
+				bound = dsa_nss_bridge_vlan_port(conduit, vid);
+				if (!bound)
+					continue;
+				if (!dsa_nss_want_add(want, &n, max, vid, phys_if, bound))
 					return n;
 			}
 			continue;
@@ -484,7 +505,8 @@ static int dsa_nss_switchdev_event(struct notifier_block *nb,
 	case SWITCHDEV_PORT_ATTR_SET: {
 		const struct switchdev_notifier_port_attr_info *info = ptr;
 
-		if (info->attr->id != SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING)
+		if (info->attr->id != SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING &&
+		    info->attr->id != SWITCHDEV_ATTR_ID_PORT_STP_STATE)
 			return NOTIFY_DONE;
 		break;
 	}

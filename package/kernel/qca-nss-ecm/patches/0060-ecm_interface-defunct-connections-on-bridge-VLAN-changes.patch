@@ -1,0 +1,104 @@
+From: Local bring-up for FPT AX3000CV2 (WF-810DF)
+Subject: [PATCH] ecm_interface: defunct connections on bridge VLAN changes
+
+A VLAN membership, PVID or filtering change does not have to change carrier
+or the set of firmware VLAN nodes. Connections can therefore keep a cached
+hierarchy and VLAN filter after that configuration becomes invalid.
+
+Defunct connections on those switchdev events independently of multicast
+support. Invalidate the whole database: a tag_8021q hierarchy can end at the
+conduit rather than contain the bridge port that raised the event. These
+configuration changes are infrequent and a broad flush is safer than missing
+one direction. Return NOTIFY_DONE without marking the event handled so DSA
+still programs the switch.
+
+--- a/ecm_interface.c
++++ b/ecm_interface.c
+@@ -34,6 +34,7 @@
+ #include <linux/rtnetlink.h>
+ #include <linux/socket.h>
+ #include <linux/wireless.h>
++#include <net/switchdev.h>
+ #if defined(ECM_MULTICAST_ENABLE) && defined(ECM_MCAST_LINUX_SNOOPER_SUPPORT)
+ #include <linux/if_bridge.h>
+ /*
+@@ -43,7 +44,6 @@
+ #define mac_addr br_mac_addr
+ #include <br_private.h>
+ #undef mac_addr
+-#include <net/switchdev.h>
+ #endif
+ #include <net/genetlink.h>
+ #include <net/netevent.h>
+@@ -8850,6 +8850,46 @@
+ }
+
+ /*
++ * Bridge VLAN updates can leave the firmware forwarding with old VLAN/PVID
++ * data even when the carrier and firmware interface numbers are unchanged.
++ */
++static int ecm_interface_bridge_vlan_event(struct notifier_block *nb, unsigned long event, void *ptr)
++{
++	struct net_device *dev = switchdev_notifier_info_to_dev(ptr);
++
++	switch (event) {
++	case SWITCHDEV_PORT_OBJ_ADD:
++	case SWITCHDEV_PORT_OBJ_DEL: {
++		const struct switchdev_notifier_port_obj_info *info = ptr;
++
++		if (info->obj->id != SWITCHDEV_OBJ_ID_PORT_VLAN) {
++			return NOTIFY_DONE;
++		}
++		break;
++	}
++	case SWITCHDEV_PORT_ATTR_SET: {
++		const struct switchdev_notifier_port_attr_info *info = ptr;
++
++		if (info->attr->id != SWITCHDEV_ATTR_ID_BRIDGE_VLAN_FILTERING) {
++			return NOTIFY_DONE;
++		}
++		break;
++	}
++	default:
++		return NOTIFY_DONE;
++	}
++
++	if (netif_is_bridge_master(dev) || netif_is_bridge_port(dev)) {
++		ecm_db_connection_defunct_all();
++	}
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block ecm_interface_bridge_vlan_nb = {
++	.notifier_call = ecm_interface_bridge_vlan_event,
++};
++
++/*
+  * ecm_interface_netdev_notifier_callback()
+  *	Netdevice notifier callback to inform us of change of state of a netdevice
+  */
+@@ -11166,6 +11206,15 @@
+ 		unregister_sysctl_table(ecm_interface_ctl_table_header);
+ 		return result;
+ 	}
++
++	result = register_switchdev_blocking_notifier(&ecm_interface_bridge_vlan_nb);
++	if (result != 0) {
++		DEBUG_ERROR("Failed to register bridge VLAN notifier %d\n", result);
++		unregister_netevent_notifier(&ecm_interface_netevent_notifier);
++		unregister_netdevice_notifier(&ecm_interface_netdev_notifier);
++		unregister_sysctl_table(ecm_interface_ctl_table_header);
++		return result;
++	}
+
+ #if defined(ECM_DB_XREF_ENABLE) && defined(ECM_BAND_STEERING_ENABLE)
+ 	/*
+@@ -11205,6 +11254,8 @@
+ 	ecm_interface_terminate_pending  = true;
+ 	spin_unlock_bh(&ecm_interface_lock);
+
++	unregister_switchdev_blocking_notifier(&ecm_interface_bridge_vlan_nb);
++
+ 	ecm_interface_unregister_nf_hook_wlan_device();
+
+ 	unregister_netevent_notifier(&ecm_interface_netevent_notifier);
