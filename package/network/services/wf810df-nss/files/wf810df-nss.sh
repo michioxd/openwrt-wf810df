@@ -52,7 +52,7 @@ wf810df_nss_pools() {
 }
 
 wf810df_nss_start() {
-	local enabled wifi wan attempts active loaded
+	local enabled wifi wan attempts active loaded result=0
 	[ "$(board_name)" = "fpt,ax3000cv2" ] || return 0
 	# Never change offload mode on a running Q6/ath11k instance.
 	[ ! -d /sys/module/ath11k ] || {
@@ -102,12 +102,27 @@ wf810df_nss_start() {
 		return 1
 	}
 	if [ "$wifi" = 1 ]; then
-		wf810df_nss_load ath11k nss_offload=1 frame_mode=2 || return 1
+		wf810df_nss_load ath11k nss_offload=1 frame_mode=2 || {
+			wf810df_nss_log 'NSS Wi-Fi module load failed; reboot required'
+			result=1
+		}
 	else
-		modprobe ath11k || return 1
+		modprobe ath11k || result=1
 	fi
-	modprobe ath11k_ahb || return 1
-	modprobe qca-dsa-nss || return 1
-	/etc/init.d/qca-nss-ecm start || return 1
+	if [ "$result" = 0 ]; then
+		modprobe ath11k_ahb || {
+			wf810df_nss_log 'Wi-Fi bus driver failed; continuing wired NSS startup'
+			result=1
+		}
+	fi
+	modprobe qca-dsa-nss || {
+		wf810df_nss_log 'LAN NSS integration failed; no ECM; reboot required'
+		return 1
+	}
+	/etc/init.d/qca-nss-ecm start || {
+		wf810df_nss_log 'ECM startup failed; reboot required'
+		return 1
+	}
 	wf810df_nss_log "native WAN $wan and YT9215 802.1Q LAN conduit assigned to NSS"
+	return "$result"
 }

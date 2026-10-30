@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * qca-dsa-nss: NSS firmware VLAN interfaces for the user ports of a DSA
- * switch driven by a tag_8021q tagger (qca-8021q, rtl8365mb-8021q).
+ * qca-dsa-nss: NSS firmware VLAN interfaces for YT921x 802.1Q DSA ports.
  *
  * With tag_8021q the switch talks to its CPU port in plain 802.1Q: a
  * standalone port carries its own VID (3072 + port), the ports of a
@@ -112,7 +111,7 @@ static void dsa_nss_node_destroy(struct dsa_nss_node *n, const char *why)
 	atomic_inc(&dsa_nss_destroys);
 }
 
-/* -EAGAIN: no interface number right now, worth a retry; -EIO: hard fail */
+/* Allocation and configuration failures are retried by the bounded worker. */
 static int dsa_nss_node_create(struct dsa_nss_node *n, u16 vid, int phys_if,
 			       struct net_device *ndev)
 {
@@ -173,10 +172,7 @@ struct dsa_nss_want {
 	struct net_device *ndev;
 };
 
-/* A port whose switch runs a tag_8021q tagger (qca-8021q on qca8k,
- * rtl8365mb-8021q on rtl8365mb): the switch talks to the conduit in plain
- * 802.1Q, and the VIDs are the framework's regardless of the switch.
- */
+/* A YT921x port using the 802.1Q conduit and framework-assigned VIDs. */
 static bool dsa_nss_port_is_8021q(const struct dsa_port *dp)
 {
 	return dp->cpu_dp && dp->ds && dp->ds->tag_8021q_ctx &&
@@ -351,7 +347,7 @@ static bool dsa_nss_node_matches(const struct dsa_nss_node *n,
 	       ether_addr_equal(n->mac, w->ndev->dev_addr);
 }
 
-/* returns true when something could not be allocated and a retry is due */
+/* returns true when a node could not be configured and a retry is due */
 static bool dsa_nss_resync(void)
 {
 	struct dsa_nss_want want[DSA_NSS_MAX_NODES];
@@ -399,7 +395,7 @@ static bool dsa_nss_resync(void)
 			break;
 		ret = dsa_nss_node_create(free, want[j].vid, want[j].phys_if,
 					  want[j].ndev);
-		if (ret == -EAGAIN)
+		if (ret)
 			again = true;
 	}
 
@@ -412,7 +408,7 @@ static void dsa_nss_work_fn(struct work_struct *work)
 {
 	if (dsa_nss_resync()) {
 		if (dsa_nss_retries++ < DSA_NSS_MAX_RETRIES) {
-			pr_info("qca-dsa-nss: no free firmware interface number, retry %u in %d ms\n",
+			pr_info("qca-dsa-nss: VLAN node setup incomplete, retry %u in %d ms\n",
 				dsa_nss_retries, DSA_NSS_RETRY_MS);
 			schedule_delayed_work(&dsa_nss_work,
 					      msecs_to_jiffies(DSA_NSS_RETRY_MS));

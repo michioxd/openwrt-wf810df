@@ -17,8 +17,8 @@ define KernelPackage/qca-dsa-nss
 endef
 
 define KernelPackage/qca-dsa-nss/description
-  Gives the user ports of a DSA switch driven by a tag_8021q tagger (qca-8021q, rtl8365mb-8021q) an
-  NSS interface number: one firmware VLAN interface (dynamic interface type
+  Gives the user ports of the YT921x 802.1Q DSA switch an NSS interface
+  number: one firmware VLAN interface (dynamic interface type
   VLAN on the conduit's phys_if) per standalone port and per VLAN-unaware
   bridge, carrying the VID the tagger uses, and one per VLAN of a VLAN-aware
   bridge, carrying that bridge VID (ECM asks for those by VID through
