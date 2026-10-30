@@ -36,10 +36,11 @@ Additional work may include device bring-up, hardware validation, driver fixes, 
 - [x] NAND Flash
 - [x] LEDs (Red/White)
 - [x] Buttons (Reset/WPS (aka Mesh button))
+- [x] NSS offload
 
 ### Known issues
 
-- NSS not working, so no hardware offloading for routing and Wi-Fi.
+- still testing...
 
 ## External resources
 
