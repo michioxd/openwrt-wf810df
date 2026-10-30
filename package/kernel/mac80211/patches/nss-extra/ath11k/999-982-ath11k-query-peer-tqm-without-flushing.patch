@@ -1,0 +1,18 @@
+Subject: [PATCH] ath11k: query peer TQM statistics without flushing
+
+Use QUERY_TQM for peer statistics so reading htt_peer_stats requests
+current per-TID queue depths without asking firmware to flush TQM.
+Keep the existing peer selection and statistics TLV mask.
+
+---
+--- a/drivers/net/wireless/ath/ath11k/debugfs_htt_stats.c
++++ b/drivers/net/wireless/ath/ath11k/debugfs_htt_stats.c
+@@ -4669,7 +4669,7 @@ static int ath11k_prep_htt_stats_cfg_params
+ 	case ATH11K_DBG_HTT_EXT_STATS_PEER_INFO:
+ 		cfg_params->cfg0 = HTT_STAT_PEER_INFO_MAC_ADDR;
+ 		cfg_params->cfg0 |= FIELD_PREP(GENMASK(15, 1),
+-					HTT_PEER_STATS_REQ_MODE_FLUSH_TQM);
++					HTT_PEER_STATS_REQ_MODE_QUERY_TQM);
+ 		cfg_params->cfg1 = HTT_STAT_DEFAULT_PEER_REQ_TYPE;
+ 		cfg_params->cfg2 |= FIELD_PREP(GENMASK(7, 0), mac_addr[0]);
+ 		cfg_params->cfg2 |= FIELD_PREP(GENMASK(15, 8), mac_addr[1]);

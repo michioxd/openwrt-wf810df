@@ -1,3 +1,11 @@
+Subject: [PATCH] net: phy: preserve 2500 fixed-link speed after status reads
+
+The software PHY uses 1000M Clause 22 registers to represent a 2500M
+fixed link. Restore its configured speed after generic status decoding,
+including after a stop/start cycle. Only pseudo fixed PHYs advertising
+2500baseX are affected; real PHY negotiation remains unchanged.
+
+---
 --- a/drivers/net/phy/fixed_phy.c
 +++ b/drivers/net/phy/fixed_phy.c
 @@ -274,6 +274,12 @@
@@ -27,3 +35,15 @@
  	case 1000:
  		return SWMII_SPEED_1000;
  	case 100:
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -2757,3 +2757,9 @@ int genphy_read_status(struct phy_device *phydev)
++	/* Clause 22 emulation encodes a 2500M fixed link as 1000M. */
++	if (phydev->is_pseudo_fixed_link && phydev->speed == SPEED_1000 &&
++	    linkmode_test_bit(ETHTOOL_LINK_MODE_2500baseX_Full_BIT,
++			      phydev->supported))
++		phydev->speed = SPEED_2500;
++
+ 	return 0;
+ }
+ EXPORT_SYMBOL(genphy_read_status);

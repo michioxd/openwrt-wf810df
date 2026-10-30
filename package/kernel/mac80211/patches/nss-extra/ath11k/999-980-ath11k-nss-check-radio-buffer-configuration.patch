@@ -1,0 +1,74 @@
+Subject: [PATCH] wifi: ath11k: check NSS radio buffer configuration
+
+Wait for firmware acknowledgment of each radio buffer limit instead of
+only checking transport submission. Configure the limits after all pdevs
+are initialized so a send failure, NACK or timeout takes the existing
+pdev teardown path, including the current radio, before NSS is started.
+
+This fixes unchecked configuration errors, not demonstrated TX pool
+starvation. Keep descriptor counts, buffer limits and REO checks intact.
+
+---
+--- a/drivers/net/wireless/ath/ath11k/nss.c
++++ b/drivers/net/wireless/ath/ath11k/nss.c
+@@ -2739,7 +2739,7 @@
+ 			 sizeof(*radio_buf_cfg_msg),
+ 			 NULL, NULL);
+
+-	status = nss_wifili_tx_msg(ar->nss.ctx, wlmsg);
++	status = nss_wifili_tx_msg_sync(ar->nss.ctx, wlmsg);
+ 	if (status != NSS_TX_SUCCESS) {
+ 		ath11k_warn(ar->ab, "nss radio buf cfg send failed %d\n", status);
+ 		ret = -EINVAL;
+@@ -3211,7 +3211,7 @@
+ 	int refill_ring_id;
+ 	int features = 0;
+ 	int dyn_if_type;
+-	int ret, i, scheme_id = 0;
++	int ret, scheme_id = 0;
+ 	u32 nss_radio_priority;
+
+ 	dyn_if_type = ath11k_nss_get_dynamic_interface_type(ab);
+@@ -3311,14 +3311,6 @@
+ 	/* Enable nss wifili peer stats by default */
+ 	ath11k_nss_peer_stats_enable(ar);
+
+-	/*TODO CFG Tx buffer limit as per no clients range per radio
+-	 * this needs to be based on target/mem cfg
+-	 * similar to tx desc cfg at soc init per radio
+-	 */
+-
+-	for (i = 0; i < ATH11K_NSS_RADIO_TX_LIMIT_RANGE; i++)
+-		ath11k_nss_radio_buf_cfg(ar, i, ATH11K_NSS_RADIO_TX_LIMIT_RANGE3);
+-
+ 	return 0;
+
+ free:
+@@ -3614,7 +3606,7 @@
+
+ int ath11k_nss_setup(struct ath11k_base *ab)
+ {
+-	int i;
++	int i, radio_id, range;
+ 	int ret = 0;
+ 	u32 target_type;
+
+@@ -3651,6 +3643,18 @@
+ 		}
+ 	}
+
++	for (radio_id = 0; radio_id < ab->num_radios; radio_id++) {
++		for (range = 0; range < ATH11K_NSS_RADIO_TX_LIMIT_RANGE; range++) {
++			ret = ath11k_nss_radio_buf_cfg(ab->pdevs[radio_id].ar, range,
++						       ATH11K_NSS_RADIO_TX_LIMIT_RANGE3);
++			if (ret) {
++				ath11k_warn(ab, "NSS PDEV %d buffer configuration failed: %d\n",
++					    radio_id, ret);
++				goto pdev_deinit;
++			}
++		}
++	}
++
+ 	/* Set the NSS statemachine to start */
+ 	ret = ath11k_nss_start(ab);
+ 	if (ret) {

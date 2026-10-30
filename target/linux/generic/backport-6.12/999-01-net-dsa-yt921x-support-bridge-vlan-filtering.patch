@@ -1,0 +1,446 @@
+From: Local bring-up for FPT AX3000CV2 (WF-810DF)
+Subject: [PATCH] net: dsa: yt921x: support bridge VLAN filtering with tag_8021q
+
+Keep bridge membership and PVID separate from internal transport VLANs.
+Activate only one configuration on user ports, keep CPU membership tagged,
+and reject transport VID collisions and ambiguous cross-bridge VID reuse.
+Direct port VLAN uppers remain unsupported; use bridge VLAN interfaces.
+
+--- a/drivers/net/dsa/yt921x.h
++++ b/drivers/net/dsa/yt921x.h
+@@ -1388,6 +1388,12 @@
+ 	 * because port_setup() runs again after it and would reset it.
+ 	 */
+ 	u16 tag_8021q_pvid[YT921X_PORT_NUM];
++	/* Bridge VLANs are inactive while the internal DSA PVID is in use. */
++	u16 bridge_pvid[YT921X_PORT_NUM];
++	u16 bridge_vlan_members[3072];
++	u16 bridge_vlan_untagged[3072];
++	bool bridge_vlan_filtering[YT921X_PORT_NUM];
++	bool bridge_vlan_fault[YT921X_PORT_NUM];
+ 	bool devlink_params_registered;
+ 	int dt_rma_slow_action;
+ 	int dt_ctrlpkt_lldp_act;
+--- a/drivers/net/dsa/yt921x_l2.c
++++ b/drivers/net/dsa/yt921x_l2.c
+@@ -1049,9 +1049,46 @@
+ 				      YT921X_VLAN_IGR_FILTER_PORTn(port), false);
+ }
+ 
++/* A partial MDIO transaction cannot be rolled back reliably. Keep the
++ * affected port closed until reboot, including across carrier changes.
++ */
++static void yt921x_8021q_fault(struct yt921x_priv *priv, int port)
++{
++	int ingress, mac;
++
++	priv->bridge_vlan_fault[port] = true;
++	ingress = yt921x_reg_set_bits(priv, YT921X_PORTn_VLAN_CTRL1(port),
++		YT921X_PORT_VLAN_CTRL1_CVLAN_DROP_TAGGED |
++		YT921X_PORT_VLAN_CTRL1_CVLAN_DROP_UNTAGGED);
++	mac = yt921x_reg_clear_bits(priv, YT921X_PORTn_CTRL(port),
++		YT921X_PORT_RX_MAC_EN | YT921X_PORT_TX_MAC_EN);
++	dev_err(yt921x_dev(priv),
++		"port %d VLAN programming failed; reboot required (isolation ingress=%d MAC=%d)\n",
++		port, ingress, mac);
++}
++
++static int yt921x_8021q_pvid_apply(struct yt921x_priv *priv, int port)
++{
++	u16 pvid = priv->bridge_vlan_filtering[port] ?
++		priv->bridge_pvid[port] : priv->tag_8021q_pvid[port];
++	u32 mask = YT921X_PORT_VLAN_CTRL1_CVLAN_DROP_UNTAGGED |
++		   YT921X_PORT_VLAN_CTRL1_CVLAN_DROP_TAGGED;
++	int res;
++
++	if (priv->bridge_vlan_fault[port])
++		return -EIO;
++	res = yt921x_port_set_pvid(priv, port, pvid);
++	if (res)
++		return res;
++
++	/* No PVID means untagged ingress must not enter any VLAN. */
++	return yt921x_reg_update_bits(priv, YT921X_PORTn_VLAN_CTRL1(port),
++				      mask, pvid ? 0 :
++				      YT921X_PORT_VLAN_CTRL1_CVLAN_DROP_UNTAGGED);
++}
++
+ static int yt921x_8021q_user_port_enter(struct yt921x_priv *priv, int port)
+ {
+-	u16 pvid = priv->tag_8021q_pvid[port];
+ 	int res;
+ 
+ 	res = yt921x_egress_ctag_mode_set(priv, port,
+@@ -1063,14 +1100,7 @@
+ 	if (res)
+ 		return res;
+ 
+-	res = yt921x_port_set_pvid(priv, port, pvid ? : YT921X_VID_UNAWARE);
+-	if (res)
+-		return res;
+-
+-	/* Untagged frames take the PVID, tagged ones must be in the table. */
+-	res = yt921x_reg_clear_bits(priv, YT921X_PORTn_VLAN_CTRL1(port),
+-				    YT921X_PORT_VLAN_CTRL1_CVLAN_DROP_UNTAGGED |
+-				    YT921X_PORT_VLAN_CTRL1_CVLAN_DROP_TAGGED);
++	res = yt921x_8021q_pvid_apply(priv, port);
+ 	if (res)
+ 		return res;
+ 
+@@ -1143,11 +1173,13 @@
+ 	int res;
+ 
+ 	mutex_lock(&priv->reg_lock);
+-	res = yt921x_vlan_add(priv, port, vid, untagged);
++	if (dsa_is_user_port(ds, port) && priv->bridge_vlan_filtering[port])
++		res = 0;
++	else
++		res = yt921x_vlan_add(priv, port, vid, untagged);
+ 	if (!res && pvid && dsa_is_user_port(ds, port)) {
+-		res = yt921x_port_set_pvid(priv, port, vid);
+-		if (!res)
+-			priv->tag_8021q_pvid[port] = vid;
++		priv->tag_8021q_pvid[port] = vid;
++		res = yt921x_8021q_pvid_apply(priv, port);
+ 	}
+ 	mutex_unlock(&priv->reg_lock);
+ 
+@@ -1163,7 +1195,7 @@
+ 	res = yt921x_vlan_del(priv, port, vid);
+ 	if (!res && priv->tag_8021q_pvid[port] == vid) {
+ 		priv->tag_8021q_pvid[port] = 0;
+-		res = yt921x_port_set_pvid(priv, port, YT921X_VID_UNAWARE);
++		res = yt921x_8021q_pvid_apply(priv, port);
+ 	}
+ 	mutex_unlock(&priv->reg_lock);
+ 
+@@ -1340,6 +1372,156 @@
+ 	return 0;
+ }
+ 
++/* Bridge VLANs and DSA transport VLANs must never be active together on
++ * a user port. Keep the inactive configuration in software for toggles.
++ */
++static int yt921x_8021q_filtering(struct yt921x_priv *priv, int port, bool enable)
++{
++	bool old = priv->bridge_vlan_filtering[port];
++	u16 internal_vid = priv->tag_8021q_pvid[port];
++	u32 drop = YT921X_PORT_VLAN_CTRL1_CVLAN_DROP_TAGGED |
++		   YT921X_PORT_VLAN_CTRL1_CVLAN_DROP_UNTAGGED;
++	int vid, res;
++
++	if (priv->bridge_vlan_fault[port])
++		return -EIO;
++	if (enable) {
++		struct dsa_switch *ds = &priv->ds;
++		struct dsa_port *dp = dsa_to_port(ds, port), *other;
++
++		dsa_switch_for_each_user_port(other, ds) {
++			if (other == dp || !priv->bridge_vlan_filtering[other->index] ||
++			    (dp->bridge && other->bridge &&
++			     dp->bridge->dev == other->bridge->dev))
++				continue;
++			for (vid = 1; vid < ARRAY_SIZE(priv->bridge_vlan_members); vid++)
++				if ((priv->bridge_vlan_members[vid] & BIT(port)) &&
++				    (priv->bridge_vlan_members[vid] & BIT(other->index)))
++					return -EBUSY;
++		}
++	}
++
++	res = yt921x_reg_set_bits(priv, YT921X_PORTn_VLAN_CTRL1(port), drop);
++	if (res)
++		return res;
++
++	if (internal_vid) {
++		res = yt921x_vlan_del(priv, port, internal_vid);
++		if (res)
++			return res;
++	}
++	for (vid = 1; vid < ARRAY_SIZE(priv->bridge_vlan_members); vid++) {
++		if (!(priv->bridge_vlan_members[vid] & BIT(port)))
++			continue;
++		if (enable)
++			res = yt921x_vlan_add(priv, port, vid,
++				priv->bridge_vlan_untagged[vid] & BIT(port));
++		else
++			res = yt921x_vlan_del(priv, port, vid);
++		if (res)
++			return res;
++	}
++	if (!enable && internal_vid) {
++		res = yt921x_vlan_add(priv, port, internal_vid, true);
++		if (res)
++			return res;
++	}
++	res = yt921x_fdb_flush_port(priv, port, false);
++	if (res)
++		return res;
++
++	priv->bridge_vlan_filtering[port] = enable;
++	res = yt921x_8021q_pvid_apply(priv, port);
++	if (res)
++		priv->bridge_vlan_filtering[port] = old;
++	/* On an I/O failure ingress stays blocked, rather than leaking VLANs. */
++	return res;
++}
++
++static int yt921x_8021q_bridge_vlan(struct yt921x_priv *priv, int port,
++				    const struct switchdev_obj_port_vlan *vlan,
++				    bool add, struct netlink_ext_ack *extack)
++{
++	struct dsa_switch *ds = &priv->ds;
++	struct dsa_port *dp = dsa_to_port(ds, port), *other;
++	u16 vid = vlan->vid;
++	u16 old_members, old_untagged, old_pvid;
++	int res = 0;
++
++	/* Direct port VLAN uppers have no bridge domain/source-port identity. */
++	if (!vlan->obj.orig_dev) {
++		NL_SET_ERR_MSG_MOD(extack, "Use bridge VLANs, not direct port VLAN uppers, with this tagger");
++		return -EOPNOTSUPP;
++	}
++	if (!vid || vid >= ARRAY_SIZE(priv->bridge_vlan_members)) {
++		NL_SET_ERR_MSG_MOD(extack, "VLAN IDs 3072-4095 are reserved for DSA transport");
++		return -EBUSY;
++	}
++
++	mutex_lock(&priv->reg_lock);
++	if (priv->bridge_vlan_fault[port]) {
++		res = -EIO;
++		goto out;
++	}
++	if (add && dsa_is_user_port(ds, port) && priv->bridge_vlan_filtering[port]) {
++		/* A CPU frame carries only VID, not a bridge identifier. */
++		dsa_switch_for_each_user_port(other, ds) {
++			if (other == dp || !priv->bridge_vlan_filtering[other->index] ||
++			    !(priv->bridge_vlan_members[vid] & BIT(other->index)))
++				continue;
++			if (!dp->bridge || !other->bridge ||
++			    dp->bridge->dev != other->bridge->dev) {
++				NL_SET_ERR_MSG_MOD(extack, "A VLAN ID cannot be shared by different bridge domains");
++				res = -EBUSY;
++				goto out;
++			}
++		}
++	}
++
++	old_members = priv->bridge_vlan_members[vid];
++	old_untagged = priv->bridge_vlan_untagged[vid];
++	old_pvid = priv->bridge_pvid[port];
++	if (add) {
++		priv->bridge_vlan_members[vid] |= BIT(port);
++		if (!dsa_is_cpu_port(ds, port) &&
++		    (vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED))
++			priv->bridge_vlan_untagged[vid] |= BIT(port);
++		else
++			priv->bridge_vlan_untagged[vid] &= ~BIT(port);
++	} else {
++		priv->bridge_vlan_members[vid] &= ~BIT(port);
++		priv->bridge_vlan_untagged[vid] &= ~BIT(port);
++	}
++
++	if (dsa_is_user_port(ds, port)) {
++		if (add && (vlan->flags & BRIDGE_VLAN_INFO_PVID))
++			priv->bridge_pvid[port] = vid;
++		else if (old_pvid == vid)
++			priv->bridge_pvid[port] = 0;
++	}
++
++	if (dsa_is_cpu_port(ds, port) || priv->bridge_vlan_filtering[port]) {
++		if (add)
++			res = yt921x_vlan_add(priv, port, vid,
++				priv->bridge_vlan_untagged[vid] & BIT(port));
++		else
++			res = yt921x_vlan_del(priv, port, vid);
++		if (!res && dsa_is_user_port(ds, port))
++			res = yt921x_8021q_pvid_apply(priv, port);
++		if (!res)
++			res = yt921x_fdb_flush_port(priv, port, false);
++	}
++	if (res) {
++		priv->bridge_vlan_members[vid] = old_members;
++		priv->bridge_vlan_untagged[vid] = old_untagged;
++		priv->bridge_pvid[port] = old_pvid;
++		yt921x_8021q_fault(priv, port);
++	}
++out:
++	mutex_unlock(&priv->reg_lock);
++	return res;
++}
++
+ int
+ yt921x_dsa_port_vlan_filtering(struct dsa_switch *ds, int port,
+ 			       bool vlan_filtering,
+@@ -1352,9 +1534,12 @@
+ 		return 0;
+ 
+ 	if (priv->tag_8021q) {
+-		NL_SET_ERR_MSG_MOD(extack,
+-				   "VLAN filtering is not available with the yt921x-8021q tagger");
+-		return -EOPNOTSUPP;
++		mutex_lock(&priv->reg_lock);
++		res = yt921x_8021q_filtering(priv, port, vlan_filtering);
++		if (res && res != -EBUSY)
++			yt921x_8021q_fault(priv, port);
++		mutex_unlock(&priv->reg_lock);
++		return res;
+ 	}
+ 
+ 	mutex_lock(&priv->reg_lock);
+@@ -1387,7 +1572,7 @@
+ 	int res;
+ 
+ 	if (priv->tag_8021q)
+-		return -EOPNOTSUPP;
++		return yt921x_8021q_bridge_vlan(priv, port, vlan, false, NULL);
+ 
+ 	mutex_lock(&priv->reg_lock);
+ 	do {
+@@ -1426,11 +1611,8 @@
+ 	u16 pvid = 0;
+ 	int res;
+ 
+-	if (priv->tag_8021q) {
+-		NL_SET_ERR_MSG_MOD(extack,
+-				   "bridge VLANs are not available with the yt921x-8021q tagger");
+-		return -EOPNOTSUPP;
+-	}
++	if (priv->tag_8021q)
++		return yt921x_8021q_bridge_vlan(priv, port, vlan, true, extack);
+ 
+ 	mutex_lock(&priv->reg_lock);
+ 	do {
+@@ -2020,7 +2202,7 @@
+ 	/* 8021q mode: the port's standalone VID gives way to the bridge's,
+ 	 * and the switch floods the bridge's VID to the CPU as well.
+ 	 */
+-	if (priv->tag_8021q && !br_vlan_enabled(bridge.dev)) {
++	if (priv->tag_8021q) {
+ 		bool tx_fwd = false;
+ 
+ 		res = dsa_tag_8021q_bridge_join(ds, port, bridge, &tx_fwd,
+--- a/drivers/net/dsa/yt921x_port.c
++++ b/drivers/net/dsa/yt921x_port.c
+@@ -679,6 +679,9 @@
+ 	u32 mask;
+ 	u32 ctrl;
+ 	int res;
++
++	if (priv->bridge_vlan_fault[port])
++		return -EIO;
+ 
+ 	res = yt921x_port_validate_link_mode(priv, port, interface, speed,
+ 					     duplex);
+--- a/net/dsa/tag_yt921x_8021q.c
++++ b/net/dsa/tag_yt921x_8021q.c
+@@ -21,48 +21,6 @@
+ 
+ #define YT921X_8021Q_NAME "yt921x-8021q"
+ 
+-/* @dev's own 802.1Q upper with this VID, if any. Not the deep lookup:
+- * from a port without VLAN state of its own that climbs to the bridge
+- * and answers with the bridge's L3 VLAN interface.
+- */
+-static struct net_device *yt921x_8021q_vlan_upper_of(struct net_device *dev,
+-						      __be16 proto, u16 vid)
+-{
+-	struct net_device *upper;
+-	struct list_head *iter;
+-
+-	netdev_for_each_upper_dev_rcu(dev, upper, iter) {
+-		if (is_vlan_dev(upper) && vlan_dev_vlan_proto(upper) == proto &&
+-		    vlan_dev_vlan_id(upper) == vid)
+-			return upper;
+-	}
+-
+-	return NULL;
+-}
+-
+-/* Did an 802.1Q upper of this port tag the frame? The tag is hwaccel
+- * metadata, or - a user port offers no VLAN TX offload, so
+- * validate_xmit_vlan() pushes it in - already in the frame. A frame the
+- * bridge forwards (offload_fwd_mark) stays in the bridge's VLAN whatever
+- * it carries inside.
+- */
+-static bool yt921x_8021q_upper_tagged(struct sk_buff *skb,
+-				      struct net_device *netdev)
+-{
+-	u16 tci;
+-
+-	if (skb_vlan_tag_present(skb))
+-		return !vid_is_dsa_8021q(skb_vlan_tag_get_id(skb));
+-
+-	if (skb->offload_fwd_mark || skb->protocol != htons(ETH_P_8021Q) ||
+-	    __vlan_get_tag(skb, &tci))
+-		return false;
+-
+-	tci &= VLAN_VID_MASK;
+-	return !vid_is_dsa_8021q(tci) &&
+-	       yt921x_8021q_vlan_upper_of(netdev, htons(ETH_P_8021Q), tci);
+-}
+-
+ static struct sk_buff *yt921x_8021q_xmit(struct sk_buff *skb,
+ 					 struct net_device *netdev)
+ {
+@@ -84,39 +42,10 @@
+ 		tx_vid = dsa_tag_8021q_bridge_vid(bridge_num);
+ 	}
+ 
+-	/* An 802.1Q upper of the port (wan.35 for a PPPoE ISP) already
+-	 * tagged the frame. The switch carries that VLAN as it is - the
+-	 * port and the CPU port are tagged members of it - so send it with
+-	 * that tag alone instead of stacking the port's standalone
+-	 * tag_8021q VID in front of it.
+-	 */
+-	if (yt921x_8021q_upper_tagged(skb, netdev))
+-		return skb;
+-
+ 	pcp = netdev_txq_to_tc(netdev, queue_mapping);
+ 
+ 	return dsa_8021q_xmit(skb, netdev, ETH_P_8021Q,
+ 			      ((pcp << VLAN_PRIO_SHIFT) | tx_vid));
+-}
+-
+-/* The user port that owns an 802.1Q upper with this VID, for a frame the
+- * switch delivered in a VLAN that is not a tag_8021q one. Such a VLAN is
+- * only ever installed for one port, so the first match is the only match.
+- */
+-static struct net_device *yt921x_8021q_find_vlan_upper(struct net_device *conduit,
+-						       __be16 proto, u16 vid)
+-{
+-	struct dsa_port *cpu_dp = conduit->dsa_ptr;
+-	struct dsa_port *dp;
+-
+-	dsa_tree_for_each_user_port(dp, cpu_dp->dst) {
+-		if (dp->cpu_dp != cpu_dp)
+-			continue;
+-		if (yt921x_8021q_vlan_upper_of(dp->user, proto, vid))
+-			return dp->user;
+-	}
+-
+-	return NULL;
+ }
+ 
+ /* Inactive VLAN configuration of an unaware bridge must not select RX. */
+@@ -153,16 +82,12 @@
+ 
+ 	dsa_8021q_rcv(skb, &src_port, &switch_id, &vbid, &vid);
+ 
+-	/* A VLAN of an 802.1Q upper: dsa_8021q_rcv left its tag on the skb
+-	 * as hwaccel metadata, so once the frame reaches the user port the
+-	 * kernel's VLAN demux hands it to the upper; we only pick the port.
++	/* Bridge VLAN metadata must reach a live member of that bridge,
++	 * never an unrelated direct port VLAN upper with the same VID.
+ 	 */
+-	if (vid >= 0 && !vid_is_dsa_8021q(vid) && skb_vlan_tag_present(skb)) {
+-		skb->dev = yt921x_8021q_find_vlan_upper(netdev, skb->vlan_proto,
+-							vid);
+-		if (!skb->dev)
+-			skb->dev = yt921x_8021q_find_bridge_vlan(netdev, vid);
+-	} else
++	if (vid >= 0 && !vid_is_dsa_8021q(vid) && skb_vlan_tag_present(skb))
++		skb->dev = yt921x_8021q_find_bridge_vlan(netdev, vid);
++	else
+ 		skb->dev = dsa_tag_8021q_find_user(netdev, src_port, switch_id,
+ 						   vid, vbid);
+ 	if (!skb->dev) {

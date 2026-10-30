@@ -1,0 +1,31 @@
+Subject: [PATCH] init: ignore link notifications from unowned PHYs
+
+The MP notifier receives NETDEV_CHANGE for every PHY, including fixed
+links and external DSA switch ports. A failed PHY-to-port lookup returns
+port zero; an unrecognised MDIO bus must not alias an owned PHY either.
+Check the port bitmap and the actual PHY device before touching MP MACs.
+
+--- a/src/init/ssdk_init.c
++++ b/src/init/ssdk_init.c
+@@ -2241,6 +2241,7 @@ static int ssdk_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
+ 	ssdk_init_cfg cfg;
+ #ifdef MP
+ 	a_uint32_t port_id = 0, dev_id = 0;
++	struct phy_device *phydev;
+ 	struct qca_phy_priv *priv = ssdk_phy_priv_data_get(dev_id);
+ 	adpt_api_t *p_api = adpt_api_ptr_get(dev_id);
+ #endif
+@@ -2308,6 +2309,13 @@ static int ssdk_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
+ 				if (dev->phydev != NULL) {
+ 					port_id = qca_ssdk_phydev_to_port(priv->device_id,
+ 						dev->phydev);
++					if (!port_id || port_id >= SW_MAX_NR_PORT ||
++					    !(qca_ssdk_port_bmp_get(priv->device_id) & BIT(port_id)))
++						return NOTIFY_DONE;
++					if (hsl_port_phydev_get(priv->device_id, port_id,
++							&phydev) != SW_OK || phydev != dev->phydev)
++						return NOTIFY_DONE;
++
+ 					rv = p_api->adpt_port_netdev_notify_set(priv, port_id);
+ 					if (rv) {
+ 						SSDK_ERROR("netdev change notify failed\n");

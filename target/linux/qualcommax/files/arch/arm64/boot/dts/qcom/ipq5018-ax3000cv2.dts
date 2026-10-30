@@ -8,6 +8,7 @@
 #include "ipq5018.dtsi"
 #include "ipq5018-ess.dtsi"
 #include "ipq5018-qcn6122.dtsi"
+#include "ipq5018-nss.dtsi"
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
@@ -154,6 +155,7 @@
 					 */
 					phy-mode = "2500base-x";
 					ethernet = <&dp2>;
+					dsa-tag-protocol = "yt921x-8021q";
 					
 					fixed-link {
 						speed = <2500>;
@@ -531,6 +533,13 @@
 	};
 };
 
+&nss0 {
+	status = "okay";
+	qcom,vlan-enabled;
+	/* Native NSS physical interfaces: dp1 WAN and dp2 YT9215 conduit. */
+	qcom,physical-interface-mask = <0x3>;
+};
+
 &q6v5_wcss {
 	boot-args = <0x01 0x04 0x03 0x0f 0x00 0x00 0x02 0x04 0x02 0x12 0x00 0x00>;
 };
@@ -541,15 +550,16 @@
 	qcom,rproc = <&q6_wcss_pd1>;
 	qcom,userpd-subsys-name = "q6v5_wcss_userpd1";
 	qcom,ath11k-calibration-variant = "FPT-AX3000CV2";
-	qcom,ath11k-fw-memory-mode = <1>;
+	qcom,ath11k-fw-memory-mode = <2>;
 	qcom,bdf-addr = <0x4c400000>;
+	nss-radio-priority = <0>;
 };
 
 &wifi1 {
 	status = "okay";
 	
 	qcom,rproc = <&q6_wcss_pd2>;
-	qcom,ath11k-fw-memory-mode = <1>;
+	qcom,ath11k-fw-memory-mode = <2>;
 	qcom,ath11k-calibration-variant = "FPT-AX3000CV2";
 	qcom,userpd-subsys-name = "q6v5_wcss_userpd2";
 	qcom,bdf-addr = <0x4d100000>;

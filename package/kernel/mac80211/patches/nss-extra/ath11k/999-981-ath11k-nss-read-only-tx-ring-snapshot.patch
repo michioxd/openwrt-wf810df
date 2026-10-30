@@ -1,0 +1,161 @@
+Subject: [PATCH] ath11k: expose read-only NSS TX ring pointer snapshots
+
+Read actual TCL and WBM HP/TP registers through HIF instead of stale
+host software indices. Restrict to IPQ5018/QCN6122 and reject inactive
+or recovering radios. Trylocks avoid blocking debugfs removal under
+core_lock and serialize the snapshot with ring teardown and radio halt.
+
+The per-open snapshot is non-atomic and its queue estimate is not the
+number of outstanding TX descriptors. No doorbells, indices, ownership
+or pool limits are changed.
+
+On the AHB QMI-failure removal path, drain debugfs operations before
+powering down, including a snapshot that started before QMI_FAIL was set.
+
+just for debugging, it can be removed later
+
+---
+--- a/drivers/net/wireless/ath/ath11k/ahb.c
++++ b/drivers/net/wireless/ath/ath11k/ahb.c
+@@ -1386,8 +1386,8 @@
+ 	struct ath11k_base *ab = platform_get_drvdata(pdev);
+ 
+ 	if (test_bit(ATH11K_FLAG_QMI_FAIL, &ab->dev_flags)) {
++		ath11k_debugfs_soc_destroy(ab);
+ 		ath11k_ahb_power_down(ab, false);
+-		ath11k_debugfs_soc_destroy(ab);
+ 		ath11k_qmi_deinit_service(ab);
+ 		goto qmi_fail;
+ 	}
+--- a/drivers/net/wireless/ath/ath11k/debugfs.c
++++ b/drivers/net/wireless/ath/ath11k/debugfs.c
+@@ -1721,6 +1721,114 @@
+ 	.llseek = default_llseek,
+ };
+ 
++static int ath11k_debugfs_nss_ring(struct ath11k_base *ab, char *buf,
++				   int len, int size, const char *name,
++				   int ring_id, enum hal_srng_dir dir)
++{
++	struct hal_srng *srng;
++	u32 reg, tp_offset, hp, tp, hp_after, queued;
++
++	if (ring_id < 0 || ring_id >= HAL_SRNG_RING_ID_MAX)
++		return len + scnprintf(buf + len, size - len,
++				       "%s id=%d invalid\n", name, ring_id);
++
++	srng = &ab->hal.srng_list[ring_id];
++	if (!srng->initialized || srng->ring_dir != dir ||
++	    srng->flags & HAL_SRNG_FLAGS_LMAC_RING ||
++	    !srng->entry_size || !srng->ring_size)
++		return len + scnprintf(buf + len, size - len,
++				       "%s id=%d unavailable\n", name, ring_id);
++
++	reg = srng->hwreg_base[HAL_SRNG_REG_GRP_R2];
++	tp_offset = dir == HAL_SRNG_DIR_SRC ? HAL_TCL1_RING_TP_OFFSET :
++		    HAL_REO1_RING_TP_OFFSET(ab);
++	/* Read actual ring registers, not the host's stale NSS-owned indices. */
++	hp = ath11k_hif_read32(ab, reg);
++	tp = ath11k_hif_read32(ab, reg + tp_offset);
++	hp_after = ath11k_hif_read32(ab, reg);
++	len += scnprintf(buf + len, size - len,
++			 "%s id=%d entries=%u entry_words=%u ring_words=%u hp=%u tp=%u hp_after=%u",
++			 name, ring_id, srng->num_entries, srng->entry_size,
++			 srng->ring_size, hp, tp, hp_after);
++
++	if (hp >= srng->ring_size || tp >= srng->ring_size ||
++	    hp_after >= srng->ring_size || hp % srng->entry_size ||
++	    tp % srng->entry_size || hp_after % srng->entry_size)
++		return len + scnprintf(buf + len, size - len, " invalid_pointers\n");
++
++	queued = hp >= tp ? hp - tp : srng->ring_size - tp + hp;
++	return len + scnprintf(buf + len, size - len,
++			       " queued_estimate=%u hp_changed=%u\n",
++			       queued / srng->entry_size, hp != hp_after);
++}
++
++static int ath11k_open_nss_rings(struct inode *inode, struct file *file)
++{
++	struct ath11k *ar = inode->i_private;
++	struct ath11k_base *ab = ar->ab;
++	struct dp_tx_ring *tx_ring;
++	char *buf;
++	int i, len, ret = -EBUSY;
++
++	/* ponytail: only the board's always-on AHB radios; audit PCI PM separately. */
++	if (ab->hw_rev != ATH11K_HW_IPQ5018_HW10 &&
++	    ab->hw_rev != ATH11K_HW_QCN6122_HW10)
++		return -EOPNOTSUPP;
++
++	buf = vzalloc(PAGE_SIZE);
++	if (!buf)
++		return -ENOMEM;
++
++	/* Removal holds core_lock while debugfs removal waits for active opens. */
++	if (!mutex_trylock(&ab->core_lock))
++		goto err_free;
++	if (!mutex_trylock(&ar->conf_mutex))
++		goto err_core_unlock;
++
++	if (!ab->nss.enabled || ar->state != ATH11K_STATE_ON ||
++	    READ_ONCE(ab->is_reset) ||
++	    test_bit(ATH11K_FLAG_RECOVERY, &ab->dev_flags) ||
++	    test_bit(ATH11K_FLAG_CRASH_FLUSH, &ab->dev_flags) ||
++	    test_bit(ATH11K_FLAG_UNREGISTERING, &ab->dev_flags) ||
++	    test_bit(ATH11K_FLAG_QMI_FAIL, &ab->dev_flags)) {
++		ret = -ENETDOWN;
++		goto err_unlock;
++	}
++
++	len = scnprintf(buf, PAGE_SIZE,
++			"soc_wide non_atomic snapshot; pointers in 32-bit words; queued_estimate is not an outstanding TX descriptor count\n");
++	for (i = 0; i < ab->hw_params.max_tx_ring; i++) {
++		tx_ring = &ab->dp.tx_ring[i];
++		len = ath11k_debugfs_nss_ring(ab, buf, len, PAGE_SIZE, "TCL",
++					      tx_ring->tcl_data_ring.ring_id,
++					      HAL_SRNG_DIR_SRC);
++		len = ath11k_debugfs_nss_ring(ab, buf, len, PAGE_SIZE, "WBM_TX_COMP",
++					      tx_ring->tcl_comp_ring.ring_id,
++					      HAL_SRNG_DIR_DST);
++	}
++
++	file->private_data = buf;
++	mutex_unlock(&ar->conf_mutex);
++	mutex_unlock(&ab->core_lock);
++	return 0;
++
++err_unlock:
++	mutex_unlock(&ar->conf_mutex);
++err_core_unlock:
++	mutex_unlock(&ab->core_lock);
++err_free:
++	vfree(buf);
++	return ret;
++}
++
++static const struct file_operations fops_nss_rings = {
++	.open = ath11k_open_nss_rings,
++	.read = ath11k_read_pdev_stats,
++	.release = ath11k_release_pdev_stats,
++	.owner = THIS_MODULE,
++	.llseek = default_llseek,
++};
++
+ int ath11k_debugfs_register(struct ath11k *ar)
+ {
+ 	struct ath11k_base *ab = ar->ab;
+@@ -1784,10 +1892,13 @@
+ 				    &fops_reset_ps_duration);
+ 	}
+ 
+-	if (ab->nss.enabled)
++	if (ab->nss.enabled) {
+ 		debugfs_create_file("nss_peer_stats_config", 0644,
+ 				    ar->debug.debugfs_pdev, ar,
+ 				    &fops_nss_stats);
++		debugfs_create_file("nss_rings", 0400, ar->debug.debugfs_pdev,
++				    ar, &fops_nss_rings);
++	}
+ 
+ 	return 0;
+ }

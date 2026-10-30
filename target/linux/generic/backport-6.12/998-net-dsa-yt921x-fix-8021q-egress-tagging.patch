@@ -1,0 +1,139 @@
+From: Local bring-up for FPT AX3000CV2 (WF-810DF)
+Subject: [PATCH] net: dsa: yt921x: fix 802.1Q egress tagging on the CPU port
+
+The tag_8021q plumbing left the newly created 802.1Q VLANs without any
+effect on egress: the conduit received untagged frames, so the tagger
+could not recover the source port and every CPU-bound packet was
+dropped.
+
+Three register settings are responsible.
+
+EXT_CPU_PORT selects whether port 8 is an external CPU port. While
+PORT_EN is set the port's egress path bypasses VLAN processing entirely,
+so the VLAN table never adds the tag and the frame leaves untagged. The
+plumbing only cleared TAG_EN, which is not enough; the whole register
+must be zeroed, which turns port 8 into a normal external port that
+forwards through the VLAN table like any other port. Restore the
+external CPU port (TAG_EN | PORT_EN | PORT) when leaving tag_8021q mode.
+
+Egress TPID profile 0 is used by every port and has to carry 0x8100. A
+zero TPID makes the switch strip the tag instead of writing one.
+
+EGR_PORT_VLAN_CTRLn.CTAG_MODE defaults to KEEP_ALL: untagged frames stay
+untagged and tagged frames stay tagged. In entry-based mode the per-VLAN
+UNTAG bitmap of the VLAN table decides instead, which is what tag_8021q
+needs. Set the CPU and user ports to entry-based on enter, so the CPU
+port emits its tag and user ports stay untagged, and put ports back to
+KEEP_ALL on leave.
+
+Verified on FPT AX3000CV2: with these settings applied, CPU-bound frames
+carry a single 8100 tag with the bridge VID, user ports still receive
+untagged frames and ICMP through the bridge works in both directions.
+
+---
+--- a/drivers/net/dsa/yt921x.h
++++ b/drivers/net/dsa/yt921x.h
+@@ -349,6 +349,12 @@
+ #define   YT921X_PORT_EGR_TPID_STAG(x)			FIELD_PREP(YT921X_PORT_EGR_TPID_STAG_M, (x))
+ #define YT921X_TPID_EGRn(x)		(0x100300 + 4 * (x))	/* [0, 3] */
+ #define  YT921X_TPID_EGR_TPID_M			GENMASK(15, 0)
++#define YT921X_PORTn_EGR_VLAN_CTRL(port)	(0x100080 + 4 * (port))
++#define  YT921X_PORT_EGR_VLAN_CTRL_CTAG_MODE_M	GENMASK(14, 12)
++#define   YT921X_PORT_EGR_VLAN_CTRL_CTAG_MODE(x) \
++		FIELD_PREP(YT921X_PORT_EGR_VLAN_CTRL_CTAG_MODE_M, (x))
++#define   YT921X_EGR_CTAG_MODE_KEEP_ALL			4
++#define   YT921X_EGR_CTAG_MODE_ENTRY_BASED		5
+ 
+ #define YT921X_PSCH_SHPn_EBS_EIR(port)	(0x354000 + 8 * (port))
+ #define  YT921X_PSCH_SHP_EIR_M			GENMASK(17, 0)
+
+--- a/drivers/net/dsa/yt921x_l2.c
++++ b/drivers/net/dsa/yt921x_l2.c
+@@ -910,14 +910,46 @@
+ 			   bool untagged);
+ static int yt921x_vlan_del(struct yt921x_priv *priv, int port, u16 vid);
+ 
++/* Egress tagging is controlled per port by EGR_PORT_VLAN_CTRLn. The reset
++ * value keeps tags exactly as received, so an untagged frame is never given
++ * a VID on the way out. Entry-based mode makes the per-VLAN untag bitmap of
++ * the VLAN table decide instead, which is what tag_8021q needs: user ports
++ * are untagged members, the CPU port is a tagged member.
++ */
++static int yt921x_egress_ctag_mode_set(struct yt921x_priv *priv, int port,
++				       u32 mode)
++{
++	return yt921x_reg_update_bits(priv,
++				      YT921X_PORTn_EGR_VLAN_CTRL(port),
++				      YT921X_PORT_EGR_VLAN_CTRL_CTAG_MODE_M,
++				      YT921X_PORT_EGR_VLAN_CTRL_CTAG_MODE(mode));
++}
++
+ static int yt921x_8021q_cpu_port_enter(struct yt921x_priv *priv, int port)
+ {
+ 	u32 ctrl;
+ 	int res;
+ 
+-	/* No CPU tag in either direction; the VLAN table steers frames. */
+-	res = yt921x_reg_clear_bits(priv, YT921X_EXT_CPU_PORT,
+-				    YT921X_EXT_CPU_PORT_TAG_EN);
++	/* Leave the external CPU block disabled. While it is enabled, port 8
++	 * is the CPU port and its egress path bypasses VLAN processing, so
++	 * the conduit only ever receives untagged frames. Disabled, the port
++	 * forwards through the VLAN table like any other external port.
++	 */
++	res = yt921x_reg_write(priv, YT921X_EXT_CPU_PORT, 0);
++	if (res)
++		return res;
++
++	/* Egress TPID profile 0 is reset to 0, and every port selects it
++	 * through PORTn_EGR. A zero TPID makes the switch strip the tag
++	 * instead of writing one, so the CPU port would never see the
++	 * tag_8021q VID.
++	 */
++	res = yt921x_reg_write(priv, YT921X_TPID_EGRn(0), 0x8100);
++	if (res)
++		return res;
++
++	res = yt921x_egress_ctag_mode_set(priv, port,
++					  YT921X_EGR_CTAG_MODE_ENTRY_BASED);
+ 	if (res)
+ 		return res;
+ 
+@@ -970,8 +1002,15 @@
+ 	/* Back to tag-directed forwarding: the tag stays on the conduit,
+ 	 * the CPU port takes no VLAN decision, nothing is flooded out of it.
+ 	 */
+-	res = yt921x_reg_set_bits(priv, YT921X_EXT_CPU_PORT,
+-				  YT921X_EXT_CPU_PORT_TAG_EN);
++	res = yt921x_reg_write(priv, YT921X_EXT_CPU_PORT,
++			       YT921X_EXT_CPU_PORT_TAG_EN |
++			       YT921X_EXT_CPU_PORT_PORT_EN |
++			       YT921X_EXT_CPU_PORT_PORT(port));
++	if (res)
++		return res;
++
++	res = yt921x_egress_ctag_mode_set(priv, port,
++					  YT921X_EGR_CTAG_MODE_KEEP_ALL);
+ 	if (res)
+ 		return res;
+ 
+@@ -1015,6 +1054,11 @@
+ 	u16 pvid = priv->tag_8021q_pvid[port];
+ 	int res;
+ 
++	res = yt921x_egress_ctag_mode_set(priv, port,
++					  YT921X_EGR_CTAG_MODE_ENTRY_BASED);
++	if (res)
++		return res;
++
+ 	res = yt921x_vlan_aware_set(priv, port, true);
+ 	if (res)
+ 		return res;
+@@ -1055,6 +1099,7 @@
+ 	yt921x_port_set_pvid(priv, port, YT921X_VID_UNAWARE);
+ 	yt921x_reg_toggle_bits(priv, YT921X_VLAN_IGR_FILTER,
+ 			       YT921X_VLAN_IGR_FILTER_PORTn(port), false);
++	yt921x_egress_ctag_mode_set(priv, port, YT921X_EGR_CTAG_MODE_KEEP_ALL);
+ }
+ 
+ /* Apply the mode to the user ports at runtime; at boot port_setup() does it.
