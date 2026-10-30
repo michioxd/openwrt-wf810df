@@ -36,10 +36,11 @@ Trong này có thể bao gồm những thành phần như xác thực phần c�
 - [x] NAND Flash
 - [x] Đèn LED (Đỏ/Trắng)
 - [x] Các nút bấm (Reset/WPS (hay còn gọi là nút Mesh))
+- [x] NSS offload
 
 ### Các vấn đề đã biết
 
-- Offload không rõ.
+- Vẫn đang test
 
 
 ## Tài nguyên bên ngoài
